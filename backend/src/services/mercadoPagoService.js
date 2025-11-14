@@ -1,6 +1,6 @@
 const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 
-// --- Verificações Explícitas de Variáveis de Ambiente --- 
+// --- Verificações Explícitas de Variáveis de Ambiente ---
 const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 if (!accessToken) {
     console.error('ERRO CRÍTICO: MERCADOPAGO_ACCESS_TOKEN não está configurado no arquivo .env do backend.');
@@ -29,7 +29,7 @@ async function createPaymentPreference(items, payer) {
             email: payer.email,
         },
         back_urls: {
-            success: `${frontendUrl}/pagamento/sucesso`,
+            success: `${frontendUrl}/`, // Redireciona para a página inicial
             failure: `${frontendUrl}/pagamento/falha`,
             pending: `${frontendUrl}/pagamento/pendente`
         },
