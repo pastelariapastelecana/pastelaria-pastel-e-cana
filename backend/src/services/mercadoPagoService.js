@@ -1,16 +1,23 @@
-// backend/src/services/mercadoPagoService.js
 const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 
-const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
+// --- Verificações Explícitas de Variáveis de Ambiente ---
+const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+if (!accessToken) {
+    console.error('ERRO CRÍTICO: MERCADOPAGO_ACCESS_TOKEN não está configurado no arquivo .env do backend.');
+    throw new Error('MERCADOPAGO_ACCESS_TOKEN é obrigatório para o serviço do Mercado Pago.');
+}
+
+const frontendUrl = process.env.FRONTEND_URL;
+if (!frontendUrl) {
+    console.error('ERRO CRÍTICO: FRONTEND_URL não está configurada no arquivo .env do backend.');
+    throw new Error('FRONTEND_URL é obrigatória para o serviço do Mercado Pago (para redirecionamentos).');
+}
+// --- Fim das Verificações ---
+
+const client = new MercadoPagoConfig({ accessToken });
 
 async function createPaymentPreference(items, payer) {
     const preference = new Preference(client);
-
-    const frontendUrl = process.env.FRONTEND_URL; // Lendo do ambiente
-    if (!frontendUrl) {
-        console.error('ERRO CRÍTICO: FRONTEND_URL não está configurada no arquivo .env do backend para o serviço Mercado Pago.');
-        throw new Error('FRONTEND_URL is not defined for Mercado Pago service.');
-    }
 
     const body = {
         items: items,
