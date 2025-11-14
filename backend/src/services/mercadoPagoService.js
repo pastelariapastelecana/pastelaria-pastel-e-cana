@@ -6,7 +6,11 @@ const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCE
 async function createPaymentPreference(items, payer) {
     const preference = new Preference(client);
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL; // Lendo do ambiente
+    if (!frontendUrl) {
+        console.error('ERRO CRÍTICO: FRONTEND_URL não está configurada no arquivo .env do backend para o serviço Mercado Pago.');
+        throw new Error('FRONTEND_URL is not defined for Mercado Pago service.');
+    }
 
     const body = {
         items: items,
