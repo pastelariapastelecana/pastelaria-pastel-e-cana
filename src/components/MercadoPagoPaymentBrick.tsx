@@ -17,7 +17,7 @@ interface MercadoPagoPaymentBrickProps {
   setIsLoading: (loading: boolean) => void;
 }
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = 'https://pastelaria-backend-yva1.onrender.com';
 
 const MercadoPagoPaymentBrick: React.FC<MercadoPagoPaymentBrickProps> = ({
   totalAmount,
