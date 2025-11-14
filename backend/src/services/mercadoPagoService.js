@@ -1,6 +1,6 @@
 const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 
-// --- Verificações Explícitas de Variáveis de Ambiente ---
+// --- Verificações Explícitas de Variáveis de Ambiente --- 
 const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 if (!accessToken) {
     console.error('ERRO CRÍTICO: MERCADOPAGO_ACCESS_TOKEN não está configurado no arquivo .env do backend.');
