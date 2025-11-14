@@ -1,4 +1,4 @@
-// backend/src/routes/paymentRoutes.js
+// backend/src/routes/paymentRoutes.js 
 const express = require('express');
 const router = express.Router();
 const { processPayment, processTransparentCardPayment } = require('../controllers/paymentController');
