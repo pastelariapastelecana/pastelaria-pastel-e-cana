@@ -15,7 +15,7 @@ import axios from 'axios';
 import PixPaymentDetails from '@/components/PixPaymentDetails';
 import MercadoPagoPaymentBrick from '@/components/MercadoPagoPaymentBrick'; // Importar o novo componente
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = 'https://pastelaria-backend-yva1.onrender.com';
 
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
