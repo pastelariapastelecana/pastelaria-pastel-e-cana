@@ -1,5 +1,5 @@
 // backend/src/controllers/paymentController.js
-const { createPaymentPreference, createPixPayment, createCardPayment } = require('../services/mercadoPagoService');
+const { createPaymentPreference } = require('../services/mercadoPagoService');
 
 async function processPayment(req, res) {
     try {
@@ -12,37 +12,7 @@ async function processPayment(req, res) {
     }
 }
 
-async function processPixPayment(req, res) {
-    try {
-        const { payerEmail, payerName, totalAmount } = req.body;
-        const pixPayment = await createPixPayment(payerEmail, payerName, totalAmount);
-        
-        if (pixPayment && pixPayment.point_of_interaction && pixPayment.point_of_interaction.transaction_data) {
-            res.json({
-                id: pixPayment.id,
-                status: pixPayment.status,
-                qr_code_base64: pixPayment.point_of_interaction.transaction_data.qr_code_base64,
-                qr_code: pixPayment.point_of_interaction.transaction_data.qr_code,
-                ticket_url: pixPayment.point_of_interaction.transaction_data.ticket_url,
-            });
-        } else {
-            throw new Error('Dados do PIX QR Code não encontrados na resposta do Mercado Pago.');
-        }
-    } catch (error) {
-        console.error('Erro ao criar pagamento PIX:', error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Erro ao criar pagamento PIX', details: error.response ? error.response.data : error.message });
-    }
-}
+// As funções processPixPayment e processTransparentCardPayment foram removidas
+// pois o Mercado Pago Checkout Pro as gerencia.
 
-async function processTransparentCardPayment(req, res) {
-    try {
-        const paymentData = req.body;
-        const result = await createCardPayment(paymentData);
-        res.json(result);
-    } catch (error) {
-        console.error('Erro ao processar pagamento transparente com cartão:', error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Erro ao processar pagamento com cartão', details: error.response ? error.response.data : error.message });
-    }
-}
-
-module.exports = { processPayment, processPixPayment, processTransparentCardPayment };
+module.exports = { processPayment };
