@@ -6,15 +6,18 @@ if (!accessToken) {
     console.error('ERRO CRÍTICO: MERCADOPAGO_ACCESS_TOKEN não está configurado no arquivo .env do backend.');
     throw new Error('MERCADOPAGO_ACCESS_TOKEN é obrigatório para o serviço do Mercado Pago.');
 }
+console.log('DEBUG: MERCADOPAGO_ACCESS_TOKEN está configurado.');
 
 const frontendUrl = process.env.FRONTEND_URL;
 if (!frontendUrl) {
     console.error('ERRO CRÍTICO: FRONTEND_URL não está configurada no arquivo .env do backend.');
     throw new Error('FRONTEND_URL é obrigatória para o serviço do Mercado Pago (para redirecionamentos).');
 }
+console.log('DEBUG: FRONTEND_URL está configurada.');
 // --- Fim das Verificações ---
 
 const client = new MercadoPagoConfig({ accessToken });
+console.log('DEBUG: MercadoPagoConfig client inicializado.');
 
 async function createPaymentPreference(items, payer) {
     const preference = new Preference(client);
