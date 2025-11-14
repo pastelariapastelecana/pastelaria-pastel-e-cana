@@ -15,4 +15,4 @@ async function processPayment(req, res) {
 // As funções processPixPayment e processTransparentCardPayment foram removidas
 // pois o Mercado Pago Checkout Pro as gerencia.
 
-module.exports = { processPayment };
+module.exports = { processPayment }; 
