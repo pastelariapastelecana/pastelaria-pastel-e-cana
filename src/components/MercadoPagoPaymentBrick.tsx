@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { loadMercadoPago } from '@mercadopago/sdk-js';
-// Removido: import { PaymentBrick } from '@mercadopago/sdk-js'; // Esta importação estava incorreta
+import { PaymentBrick } from '@mercadopago/sdk-js';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
@@ -17,7 +17,7 @@ interface MercadoPagoPaymentBrickProps {
   setIsLoading: (loading: boolean) => void;
 }
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'; // Usar variável de ambiente
 
 const MercadoPagoPaymentBrick: React.FC<MercadoPagoPaymentBrickProps> = ({
   totalAmount,
@@ -51,16 +51,10 @@ const MercadoPagoPaymentBrick: React.FC<MercadoPagoPaymentBrickProps> = ({
       setBrickLoaded(false); // Resetar o estado de carregamento do brick
       console.log('MercadoPagoPaymentBrick: Iniciando carregamento do SDK...');
       try {
-        // Carrega o SDK e obtém o objeto MercadoPago
-        const mp = await loadMercadoPago(publicKey, {
+        await loadMercadoPago(publicKey, {
           locale: 'pt-BR',
         });
         console.log('MercadoPagoPaymentBrick: SDK do Mercado Pago carregado com sucesso.');
-
-        // Verifica se PaymentBrick está disponível no objeto mp
-        if (!mp || !mp.PaymentBrick) {
-          throw new Error('MercadoPago.PaymentBrick não encontrado após carregar o SDK.');
-        }
 
         const settings = {
           initialization: {
@@ -135,8 +129,7 @@ const MercadoPagoPaymentBrick: React.FC<MercadoPagoPaymentBrickProps> = ({
 
         if (brickContainer.current) {
           console.log('MercadoPagoPaymentBrick: Tentando renderizar o PaymentBrick...');
-          // Instancia o PaymentBrick a partir do objeto MercadoPago
-          const bricks = new mp.PaymentBrick(settings);
+          const bricks = new PaymentBrick(settings);
           bricks.render(brickContainer.current);
         }
       } catch (error) {
