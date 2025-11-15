@@ -1,7 +1,17 @@
 // backend/src/services/mercadoPagoService.js
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 
-const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
+const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+
+console.log('DEBUG: MercadoPagoService - Access Token:', accessToken ? 'Loaded' : 'MISSING');
+
+if (!accessToken) {
+    console.error('ERRO CRÍTICO: MERCADOPAGO_ACCESS_TOKEN não está configurado no arquivo .env do backend.');
+    // Lançar um erro aqui impedirá que o módulo seja carregado, o que é desejável se o token for crítico.
+    throw new Error('MERCADOPAGO_ACCESS_TOKEN is not defined for Mercado Pago service.');
+}
+
+const client = new MercadoPagoConfig({ accessToken });
 
 async function createPaymentPreference(items, payer) {
     const preference = new Preference(client);
@@ -9,7 +19,7 @@ async function createPaymentPreference(items, payer) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
     const body = {
-        items: items, // Já deve incluir a taxa de entrega se houver
+        items: items,
         payer: {
             name: payer.name,
             email: payer.email,
@@ -20,7 +30,6 @@ async function createPaymentPreference(items, payer) {
             pending: `${frontendUrl}/checkout?status=pending`
         },
         auto_return: "approved",
-        // notification_url: `${process.env.BACKEND_URL}/api/webhook/mercadopago`, // Opcional: para receber notificações de status de pagamento
     };
 
     const result = await preference.create({ body });
