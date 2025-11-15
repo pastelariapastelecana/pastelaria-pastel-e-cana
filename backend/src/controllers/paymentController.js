@@ -1,8 +1,11 @@
 // backend/src/controllers/paymentController.js
 const { createPaymentPreference } = require('../services/mercadoPagoService');
 
+console.log('DEBUG: paymentController.js loaded'); // Debug log
+
 async function processPayment(req, res) {
     try {
+        console.log('DEBUG: processPayment function called'); // Debug log inside function
         const { items, payer } = req.body;
         const preference = await createPaymentPreference(items, payer);
         res.json({ id: preference.id, init_point: preference.init_point });
