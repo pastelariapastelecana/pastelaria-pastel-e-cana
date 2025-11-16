@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCart } from '@/contexts/CartContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { MapPin, QrCode, Loader2, CheckCircle2, User, Mail, CreditCard } from 'lucide-react'; // Re-added CreditCard
+import { MapPin, QrCode, Loader2, CheckCircle2, User, Mail, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import PixPaymentDetails from '@/components/PixPaymentDetails';
@@ -32,7 +32,7 @@ const Checkout = () => {
     deliveryFee?: number | null;
   };
 
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'mercadopago_checkout_pro'>('pix'); // Added Mercado Pago option
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'mercadopago_checkout_pro'>('pix');
   const [isLoading, setIsLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
   const [pixData, setPixData] = useState<{ qrCodeImage: string; pixCopyPaste: string } | null>(null);
@@ -124,14 +124,26 @@ const Checkout = () => {
     setPaymentStatus('processing');
 
     try {
-      const orderItems = items.map(item => ({
+      let orderItems = items.map(item => ({
         id: item.id,
         title: item.name,
-        description: item.name, // Usar o nome como descrição para simplicidade
+        description: item.name,
         quantity: item.quantity,
         currency_id: 'BRL',
         unit_price: item.price,
       }));
+
+      // Adicionar a taxa de entrega como um item separado
+      if (deliveryFee > 0) {
+        orderItems.push({
+          id: 'delivery_fee',
+          title: 'Taxa de Entrega',
+          description: 'Custo de entrega do pedido',
+          quantity: 1,
+          currency_id: 'BRL',
+          unit_price: deliveryFee,
+        });
+      }
 
       const response = await axios.post(`${BACKEND_URL}/api/create-payment`, {
         items: orderItems,
@@ -142,10 +154,7 @@ const Checkout = () => {
       });
 
       if (response.data && response.data.init_point) {
-        // Redirecionar para o Checkout Pro do Mercado Pago
         window.location.href = response.data.init_point;
-        // O restante da lógica de confirmação será tratada pelo retorno do Mercado Pago
-        // para a URL de sucesso configurada no backend.
       } else {
         throw new Error('Link de pagamento do Mercado Pago não recebido.');
       }
@@ -158,7 +167,6 @@ const Checkout = () => {
     }
   };
 
-  // Se o pagamento foi um sucesso (após PIX ou retorno do MP)
   if (paymentStatus === 'success' || location.pathname === '/pagamento/sucesso') {
     return (
       <div className="min-h-screen flex flex-col">
@@ -300,7 +308,7 @@ const Checkout = () => {
               <h2 className="text-2xl font-bold mb-6">Forma de Pagamento</h2>
               <RadioGroup
                 value={paymentMethod}
-                onValueChange={(value: 'pix' | 'mercadopago_checkout_pro') => { // Updated options
+                onValueChange={(value: 'pix' | 'mercadopago_checkout_pro') => {
                   setPaymentMethod(value);
                   setShowPixSection(false);
                   setPixData(null);
