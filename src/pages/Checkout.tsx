@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -31,15 +31,16 @@ const Checkout = () => {
     deliveryFee?: number | null;
   };
 
-  const [paymentMethod, setPaymentMethod] = useState<'mercadopago_checkout_pro'>('mercadopago_checkout_pro'); // Apenas Mercado Pago
+  const [paymentMethod, setPaymentMethod] = useState<'mercadopago'>('mercadopago');
   const [isLoading, setIsLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
-  
+
   const [payerName, setPayerName] = useState('');
   const [payerEmail, setPayerEmail] = useState('');
 
   const totalWithDelivery = totalPrice + (deliveryFee || 0);
 
+  // Redireciona se o carrinho estiver vazio ou detalhes de entrega ausentes
   useEffect(() => {
     if (items.length === 0 || !deliveryDetails || deliveryFee === undefined || deliveryFee === null) {
       toast.info('Por favor, revise seu carrinho e endereço de entrega.');
@@ -53,68 +54,112 @@ const Checkout = () => {
     return `${address}, ${number}, ${neighborhood}, ${city} - ${zipCode}`;
   };
 
-  const handleMercadoPagoCheckout = async () => {
+  // Função para enviar os detalhes do pedido para o backend
+  const sendOrderToBackend = useCallback(async (paymentId: string, paymentMethodUsed: string) => {
     if (!deliveryDetails || deliveryFee === null) {
-      toast.error('Detalhes de entrega ou taxa de frete ausentes. Por favor, retorne ao carrinho.');
-      return;
+        toast.error('Detalhes de entrega ou taxa de frete ausentes. Por favor, retorne ao carrinho.');
+        return;
+    }
+
+    const orderDetails = {
+        items: items,
+        deliveryDetails: deliveryDetails,
+        deliveryFee: deliveryFee,
+        totalPrice: totalPrice,
+        totalWithDelivery: totalWithDelivery,
+        paymentMethod: paymentMethodUsed,
+        payerName: payerName,
+        payerEmail: payerEmail,
+        paymentId: paymentId, // Passa paymentId
+        orderDate: new Date().toISOString(),
+    };
+
+    try {
+        await axios.post(`${BACKEND_URL}/api/confirm-order`, orderDetails);
+        toast.success('Pedido confirmado e notificação enviada!');
+        setPaymentStatus('success');
+        clearCart();
+    } catch (error) {
+        console.error('Erro ao confirmar pedido no backend:', error);
+        toast.error('Ocorreu um erro ao finalizar seu pedido. Por favor, entre em contato.');
+        setPaymentStatus('failed');
+    }
+  }, [items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, payerName, payerEmail, clearCart]);
+
+  // Efeito para lidar com o retorno do Mercado Pago na página de sucesso
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const status = query.get('status');
+    const paymentId = query.get('payment_id');
+
+    if (location.pathname === '/pagamento/sucesso' && status === 'approved' && paymentId) {
+        if (paymentStatus !== 'success' && paymentStatus !== 'processing') {
+            setPaymentStatus('processing');
+            sendOrderToBackend(paymentId, 'mercadopago_checkout_pro'); // Passa paymentId
+        }
+    } else if (location.pathname === '/pagamento/sucesso' && status === 'pending') {
+        toast.info('Seu pagamento está pendente. Aguardando confirmação.');
+    } else if (location.pathname === '/pagamento/sucesso' && status === 'rejected') {
+        toast.error('Seu pagamento foi recusado. Por favor, tente novamente.');
+        navigate('/checkout');
+    }
+  }, [location.search, location.pathname, navigate, paymentStatus, sendOrderToBackend]);
+
+
+  const handleCheckoutProPayment = async () => {
+    if (!deliveryDetails || deliveryFee === null || !payerName.trim() || !payerEmail.trim()) {
+        toast.error('Por favor, preencha todos os dados do pagador e de entrega.');
+        return;
     }
 
     setIsLoading(true);
     setPaymentStatus('processing');
 
     try {
-      let orderItems = items.map(item => ({
-        id: item.id,
-        title: item.name,
-        description: item.name,
-        quantity: item.quantity,
-        currency_id: 'BRL',
-        unit_price: item.price,
-      }));
+        const orderItemsForMP = items.map(item => ({
+            title: item.name,
+            unit_price: parseFloat(item.price.toFixed(2)),
+            quantity: item.quantity,
+            currency_id: 'BRL',
+            picture_url: item.imageUrl,
+            description: item.description || item.name,
+        }));
 
-      if (deliveryFee > 0) {
-        orderItems.push({
-          id: 'delivery_fee',
-          title: 'Taxa de Entrega',
-          description: 'Custo de entrega do pedido',
-          quantity: 1,
-          currency_id: 'BRL',
-          unit_price: deliveryFee,
+        // Adiciona a taxa de entrega como um item se ela existir
+        if (deliveryFee && deliveryFee > 0) {
+            orderItemsForMP.push({
+                title: 'Taxa de Entrega',
+                unit_price: parseFloat(deliveryFee.toFixed(2)),
+                quantity: 1,
+                currency_id: 'BRL',
+                picture_url: '',
+                description: 'Custo de entrega do pedido',
+            });
+        }
+
+        const response = await axios.post(`${BACKEND_URL}/api/create-payment`, {
+            items: orderItemsForMP,
+            payer: {
+                name: payerName,
+                email: payerEmail,
+            },
         });
-      }
 
-      const response = await axios.post(`${BACKEND_URL}/api/create-payment`, {
-        items: orderItems,
-        payer: {
-          name: payerName,
-          email: payerEmail,
-        },
-      });
-
-      if (response.data && response.data.init_point) {
-        // Antes de redirecionar, confirme o pedido no seu backend
-        await axios.post(`${BACKEND_URL}/api/confirm-order`, {
-          items: items,
-          deliveryDetails: deliveryDetails,
-          deliveryFee: deliveryFee,
-          totalPrice: totalWithDelivery,
-          paymentMethod: 'mercadopago_checkout_pro',
-          payerName: payerName,
-          payerEmail: payerEmail,
-        });
-        window.location.href = response.data.init_point;
-      } else {
-        throw new Error('Link de pagamento do Mercado Pago não recebido.');
-      }
+        if (response.data && response.data.init_point) {
+            window.location.href = response.data.init_point; // Redireciona para o Mercado Pago
+        } else {
+            throw new Error('URL de pagamento do Mercado Pago não recebida.');
+        }
     } catch (error) {
-      console.error('Erro ao iniciar Checkout Pro do Mercado Pago:', error);
-      toast.error('Ocorreu um erro ao iniciar o pagamento com Mercado Pago. Tente novamente.');
-      setPaymentStatus('failed');
+        console.error('Erro ao iniciar pagamento com Mercado Pago Checkout Pro:', error);
+        toast.error('Ocorreu um erro ao iniciar o pagamento. Tente novamente.');
+        setPaymentStatus('failed');
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 
+  // Se o pagamento foi um sucesso (após retorno do MP)
   if (paymentStatus === 'success' || location.pathname === '/pagamento/sucesso') {
     return (
       <div className="min-h-screen flex flex-col">
@@ -256,17 +301,17 @@ const Checkout = () => {
               <h2 className="text-2xl font-bold mb-6">Forma de Pagamento</h2>
               <RadioGroup
                 value={paymentMethod}
-                onValueChange={(value: 'mercadopago_checkout_pro') => {
+                onValueChange={(value: 'mercadopago') => {
                   setPaymentMethod(value);
                   setIsLoading(false);
                 }}
                 className="space-y-4"
               >
                 <div className="flex items-center space-x-3 p-4 border rounded-lg">
-                  <RadioGroupItem value="mercadopago_checkout_pro" id="payment-mercadopago" />
+                  <RadioGroupItem value="mercadopago" id="payment-mercadopago" />
                   <Label htmlFor="payment-mercadopago" className="flex items-center gap-2 text-lg font-medium cursor-pointer">
                     <CreditCard className="w-6 h-6 text-blue-600" />
-                    Cartão de Crédito/Débito (Mercado Pago)
+                    (Cartão de Crédito/Débito e PIX)
                   </Label>
                 </div>
               </RadioGroup>
@@ -295,13 +340,13 @@ const Checkout = () => {
                 variant="hero"
                 size="lg"
                 className="w-full"
-                onClick={handleMercadoPagoCheckout}
+                onClick={handleCheckoutProPayment}
                 disabled={isCheckoutButtonDisabled}
               >
                 {isLoading ? (
                   <Loader2 className="mr-2 h-6 w-6 animate-spin" />
                 ) : (
-                  'Pagar com Mercado Pago'
+                  'Finalizar Pedido'
                 )}
               </Button>
             </div>
