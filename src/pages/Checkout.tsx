@@ -74,6 +74,7 @@ const Checkout = () => {
         payerEmail: payerEmail,
         payerName: payerName,
       });
+      console.log('Backend PIX response:', response.data); // Added console log
       setPixData(response.data);
       setShowPixSection(true);
       setPaymentStatus('idle');
@@ -133,7 +134,6 @@ const Checkout = () => {
         unit_price: item.price,
       }));
 
-      // Adicionar a taxa de entrega como um item separado
       if (deliveryFee > 0) {
         orderItems.push({
           id: 'delivery_fee',
