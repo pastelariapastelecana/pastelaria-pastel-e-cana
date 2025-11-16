@@ -12,7 +12,7 @@ import Carrinho from "./pages/Carrinho";
 import Checkout from "./pages/Checkout";
 import Feedback from "./pages/Feedback";
 import Registration from "./pages/Registration";
-import NossaLoja from "./pages/NossaLoja"; // Importar a nova página NossaLoja
+import NossaLoja from "./pages/NossaLoja";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,10 +31,12 @@ const App = () => (
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/contato" element={<Contato />} />
             <Route path="/cadastro" element={<Registration />} />
-            <Route path="/nossa-loja" element={<NossaLoja />} /> {/* Nova rota para Nossa Loja */}
+            <Route path="/nossa-loja" element={<NossaLoja />} />
             <Route path="/carrinho" element={<Carrinho />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/pagamento/sucesso" element={<Checkout />} />
+            <Route path="/pagamento/falha" element={<Checkout />} /> {/* Nova rota para falha */}
+            <Route path="/pagamento/pendente" element={<Checkout />} /> {/* Nova rota para pendente */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
