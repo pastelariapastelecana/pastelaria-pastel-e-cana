@@ -15,34 +15,28 @@ async function createPaymentPreference(items, payer) {
             email: payer.email,
         },
         back_urls: {
-            success: `${frontendUrl}/`, // Alterado para a página inicial
+            success: `${frontendUrl}/pagamento/sucesso`,
             failure: `${frontendUrl}/pagamento/falha`,
             pending: `${frontendUrl}/pagamento/pendente`
         },
         auto_return: "approved",
+        notification_url: `${process.env.BACKEND_URL}/api/webhooks/mercadopago`, // Adiciona o URL do webhook
     };
 
     const result = await preference.create({ body });
     return result;
 }
 
-async function createCardPayment(paymentData) {
+async function createPixPayment(payerEmail, payerName, totalAmount) {
     const payment = new Payment(client);
+
     const body = {
-        transaction_amount: paymentData.transaction_amount,
-        token: paymentData.token,
-        description: paymentData.description,
-        installments: paymentData.installments,
-        payment_method_id: paymentData.payment_method_id,
-        issuer_id: paymentData.issuer_id,
+        transaction_amount: parseFloat(totalAmount.toFixed(2)),
+        description: 'Pagamento do pedido na Pastelaria Pastel & Cana',
+        payment_method_id: 'pix',
         payer: {
-            email: paymentData.payer.email,
-            first_name: paymentData.payer.first_name,
-            last_name: paymentData.payer.last_name,
-            identification: {
-                type: paymentData.payer.identification.type,
-                number: paymentData.payer.identification.number,
-            },
+            email: payerEmail,
+            first_name: payerName,
         },
     };
 
@@ -50,4 +44,15 @@ async function createCardPayment(paymentData) {
     return result;
 }
 
-module.exports = { createPaymentPreference, createCardPayment };
+async function getPaymentDetails(paymentId) {
+    const payment = new Payment(client);
+    try {
+        const result = await payment.get({ id: paymentId });
+        return result;
+    } catch (error) {
+        console.error(`Erro ao buscar detalhes do pagamento ${paymentId} no Mercado Pago:`, error.message);
+        throw error;
+    }
+}
+
+module.exports = { createPaymentPreference, createPixPayment, getPaymentDetails };
