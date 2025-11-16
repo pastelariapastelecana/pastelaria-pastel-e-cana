@@ -9,7 +9,7 @@ async function getDeliveryFee(req, res) {
         const distanceInKm = await calculateDistance(origin, destination);
 
         // Lógica de preço: Ex: R$ 5.00 base + R$ 2.00 por km
-        const baseFee = 5.00;
+        const baseFee = 0.00;
         const feePerKm = 2.00;
         const deliveryFee = baseFee + (distanceInKm * feePerKm);
 
