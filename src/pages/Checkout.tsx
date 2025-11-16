@@ -12,8 +12,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MapPin, CreditCard, QrCode, Loader2, CheckCircle2, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
-import PixPaymentDetails from '@/components/PixPaymentDetails.tsx'; // Corrigido para incluir .tsx
-import MercadoPagoPaymentBrick from '@/components/MercadoPagoPaymentBrick.tsx';
+import PixPaymentDetails from '@/components/PixPaymentDetails';
+import MercadoPagoPaymentBrick from '@/components/MercadoPagoPaymentBrick';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -39,7 +39,6 @@ const Checkout = () => {
   const [pixData, setPixData] = useState<{ qrCodeImage: string; pixCopyPaste: string } | null>(null);
   const [showPixSection, setShowPixSection] = useState(false);
 
-  // Dados do pagador para o Mercado Pago Transparente
   const [payerName, setPayerName] = useState('');
   const [payerEmail, setPayerEmail] = useState('');
 
@@ -58,31 +57,34 @@ const Checkout = () => {
     return `${address}, ${number}, ${neighborhood}, ${city} - ${zipCode}`;
   };
 
-  const sendOrderConfirmation = async (method: 'pix' | 'credit_card' | 'debit_card') => {
+  const sendOrderToBackend = async (paymentId: string, paymentMethodUsed: 'pix' | 'credit_card' | 'debit_card') => {
     if (!deliveryDetails || deliveryFee === null) {
-      toast.error('Detalhes de entrega ou taxa de frete ausentes. Não foi possível confirmar o pedido.');
-      return;
+        toast.error('Detalhes de entrega ou taxa de frete ausentes. Por favor, retorne ao carrinho.');
+        return;
     }
 
+    const orderDetails = {
+        items: items,
+        deliveryDetails: deliveryDetails,
+        deliveryFee: deliveryFee,
+        totalPrice: totalPrice,
+        totalWithDelivery: totalWithDelivery,
+        paymentMethod: paymentMethodUsed,
+        payerName: payerName,
+        payerEmail: payerEmail,
+        paymentId: paymentId,
+        orderDate: new Date().toISOString(),
+    };
+
     try {
-      await axios.post(`${BACKEND_URL}/api/confirm-order`, {
-        items: items.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        deliveryDetails,
-        deliveryFee,
-        totalPrice: totalWithDelivery,
-        paymentMethod: method,
-        payerName,
-        payerEmail,
-      });
-      toast.success('Pedido confirmado com sucesso! Um e-mail foi enviado.');
+        await axios.post(`${BACKEND_URL}/api/confirm-order`, orderDetails);
+        toast.success('Pedido confirmado e notificação enviada!');
+        clearCart();
+        navigate('/pagamento/sucesso');
     } catch (error) {
-      console.error('Erro ao enviar confirmação de pedido para o backend:', error);
-      toast.error('Erro ao registrar o pedido. Por favor, entre em contato.');
+        console.error('Erro ao confirmar pedido no backend:', error);
+        toast.error('Ocorreu um erro ao finalizar seu pedido. Por favor, entre em contato.');
+        setPaymentStatus('failed');
     }
   };
 
@@ -120,22 +122,15 @@ const Checkout = () => {
   const handlePixConfirmation = async () => {
     setIsLoading(true);
     setPaymentStatus('processing');
-    // Simula a confirmação do pagamento PIX
-    await sendOrderConfirmation('pix'); // Envia a confirmação do pedido
-    setTimeout(() => {
-      setPaymentStatus('success');
-      clearCart();
-      navigate('/pagamento/sucesso');
-      setIsLoading(false);
-    }, 1500);
+    // Em um cenário real, você verificaria o status do pagamento PIX com a API do Mercado Pago.
+    // Por enquanto, vamos simular a confirmação e enviar para o backend.
+    await sendOrderToBackend('PIX_CONFIRMED_SIMULATED', 'pix');
+    setIsLoading(false);
   };
 
   const handleCardPaymentSuccess = async (paymentId: string) => {
     toast.success(`Pagamento com cartão aprovado! ID: ${paymentId}`);
-    await sendOrderConfirmation(paymentMethod); // Envia a confirmação do pedido
-    setPaymentStatus('success');
-    clearCart();
-    navigate('/pagamento/sucesso');
+    await sendOrderToBackend(paymentId, paymentMethod);
   };
 
   const handleCardPaymentError = (error: any) => {
@@ -290,7 +285,7 @@ const Checkout = () => {
                   setPaymentMethod(value);
                   setShowPixSection(false);
                   setPixData(null);
-                  setIsLoading(false); // Reset loading state when changing payment method
+                  setIsLoading(false);
                 }}
                 className="space-y-4"
               >
