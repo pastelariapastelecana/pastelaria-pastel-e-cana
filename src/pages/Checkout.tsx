@@ -12,7 +12,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MapPin, CreditCard, QrCode, Loader2, CheckCircle2, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
-import PixPaymentDetails from '@/components/PixPaymentDetails';
+import PixPaymentDetails from '@/components/PixPaymentDetails.tsx'; // Adicionado .tsx aqui
 import MercadoPagoPaymentBrick from '@/components/MercadoPagoPaymentBrick';
 
 const BACKEND_URL = 'http://localhost:3001';
