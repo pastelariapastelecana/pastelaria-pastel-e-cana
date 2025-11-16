@@ -7,6 +7,7 @@ if (!accessToken) {
     throw new Error('MERCADOPAGO_ACCESS_TOKEN is not defined for PIX service.');
 }
 
+// Inicializa o cliente MercadoPago uma única vez ao carregar o módulo
 const client = new MercadoPagoConfig({ accessToken });
 
 async function generatePixData(amount, description, payerEmail, payerName) {
@@ -16,14 +17,24 @@ async function generatePixData(amount, description, payerEmail, payerName) {
     }
     const payment = new Payment(client);
 
+    // Dividir o nome completo em primeiro nome e sobrenome
+    const nameParts = payerName.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     const body = {
         transaction_amount: parseFloat(amount.toFixed(2)),
         description: description,
         payment_method_id: 'pix',
         payer: {
             email: payerEmail,
-            first_name: payerName.split(' ')[0] || '', // Pega o primeiro nome
-            last_name: payerName.split(' ').slice(1).join(' ') || '', // Pega o restante como sobrenome
+            first_name: firstName,
+            last_name: lastName, // Adicionado last_name
+            // Opcional: Adicionar identificação se necessário para o país
+            // identification: {
+            //     type: "CPF",
+            //     number: "12345678909"
+            // }
         },
     };
 
@@ -36,11 +47,12 @@ async function generatePixData(amount, description, payerEmail, payerName) {
                 pixCopyPaste: result.point_of_interaction.transaction_data.qr_code,
             };
         } else {
+            console.error('Mercado Pago PIX response missing transaction_data:', result);
             throw new Error('Dados do PIX QR Code não encontrados na resposta do Mercado Pago.');
         }
     } catch (error) {
         console.error('Erro ao gerar dados PIX no Mercado Pago:', error.response ? error.response.data : error.message);
-        throw error; // Re-lança o erro para ser tratado pelo controller
+        throw error;
     }
 }
 
