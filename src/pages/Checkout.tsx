@@ -9,10 +9,9 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCart } from '@/contexts/CartContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { MapPin, QrCode, Loader2, CheckCircle2, User, Mail, CreditCard } from 'lucide-react';
+import { MapPin, CreditCard, Loader2, CheckCircle2, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
-import PixPaymentDetails from '@/components/PixPaymentDetails';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -32,12 +31,10 @@ const Checkout = () => {
     deliveryFee?: number | null;
   };
 
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'mercadopago_checkout_pro'>('pix');
+  const [paymentMethod, setPaymentMethod] = useState<'mercadopago_checkout_pro'>('mercadopago_checkout_pro'); // Apenas Mercado Pago
   const [isLoading, setIsLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
-  const [pixData, setPixData] = useState<{ qrCodeImage: string; pixCopyPaste: string } | null>(null);
-  const [showPixSection, setShowPixSection] = useState(false);
-
+  
   const [payerName, setPayerName] = useState('');
   const [payerEmail, setPayerEmail] = useState('');
 
@@ -54,65 +51,6 @@ const Checkout = () => {
     if (!details) return '';
     const { address, number, neighborhood, city, zipCode } = details;
     return `${address}, ${number}, ${neighborhood}, ${city} - ${zipCode}`;
-  };
-
-  const handlePixPayment = async () => {
-    if (!deliveryDetails || deliveryFee === null) {
-      toast.error('Detalhes de entrega ou taxa de frete ausentes. Por favor, retorne ao carrinho.');
-      return;
-    }
-
-    setIsLoading(true);
-    setPaymentStatus('processing');
-    setShowPixSection(false);
-    setPixData(null);
-
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/generate-pix`, {
-        amount: totalWithDelivery,
-        description: `Pedido Pastel & Cana - ${new Date().toLocaleDateString('pt-BR')}`,
-        payerEmail: payerEmail,
-        payerName: payerName,
-      });
-      console.log('Backend PIX response:', response.data); // Added console log
-      setPixData(response.data);
-      setShowPixSection(true);
-      setPaymentStatus('idle');
-      toast.info('QR Code PIX gerado. Por favor, realize o pagamento.');
-    } catch (error) {
-      console.error('Erro ao processar pagamento PIX:', error);
-      toast.error('Ocorreu um erro ao gerar o PIX. Tente novamente.');
-      setPaymentStatus('failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handlePixConfirmation = async () => {
-    setIsLoading(true);
-    setPaymentStatus('processing');
-    try {
-      await axios.post(`${BACKEND_URL}/api/confirm-order`, {
-        items: items,
-        deliveryDetails: deliveryDetails,
-        deliveryFee: deliveryFee,
-        totalPrice: totalWithDelivery,
-        paymentMethod: 'pix',
-        payerName: payerName,
-        payerEmail: payerEmail,
-      });
-
-      toast.success('Pagamento PIX confirmado! Seu pedido foi realizado.');
-      setPaymentStatus('success');
-      clearCart();
-      navigate('/pagamento/sucesso');
-    } catch (error) {
-      console.error('Erro ao confirmar pedido no backend:', error);
-      toast.error('Ocorreu um erro ao confirmar seu pedido. Por favor, entre em contato.');
-      setPaymentStatus('failed');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleMercadoPagoCheckout = async () => {
@@ -154,6 +92,16 @@ const Checkout = () => {
       });
 
       if (response.data && response.data.init_point) {
+        // Antes de redirecionar, confirme o pedido no seu backend
+        await axios.post(`${BACKEND_URL}/api/confirm-order`, {
+          items: items,
+          deliveryDetails: deliveryDetails,
+          deliveryFee: deliveryFee,
+          totalPrice: totalWithDelivery,
+          paymentMethod: 'mercadopago_checkout_pro',
+          payerName: payerName,
+          payerEmail: payerEmail,
+        });
         window.location.href = response.data.init_point;
       } else {
         throw new Error('Link de pagamento do Mercado Pago não recebido.');
@@ -308,76 +256,55 @@ const Checkout = () => {
               <h2 className="text-2xl font-bold mb-6">Forma de Pagamento</h2>
               <RadioGroup
                 value={paymentMethod}
-                onValueChange={(value: 'pix' | 'mercadopago_checkout_pro') => {
+                onValueChange={(value: 'mercadopago_checkout_pro') => {
                   setPaymentMethod(value);
-                  setShowPixSection(false);
-                  setPixData(null);
                   setIsLoading(false);
                 }}
                 className="space-y-4"
               >
                 <div className="flex items-center space-x-3 p-4 border rounded-lg">
-                  <RadioGroupItem value="pix" id="payment-pix" />
-                  <Label htmlFor="payment-pix" className="flex items-center gap-2 text-lg font-medium cursor-pointer">
-                    <QrCode className="w-6 h-6 text-green-600" />
-                    PIX
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-3 p-4 border rounded-lg">
                   <RadioGroupItem value="mercadopago_checkout_pro" id="payment-mercadopago" />
                   <Label htmlFor="payment-mercadopago" className="flex items-center gap-2 text-lg font-medium cursor-pointer">
                     <CreditCard className="w-6 h-6 text-blue-600" />
-                    Cartão de Crédito/Débito/PIX 
+                    Cartão de Crédito/Débito (Mercado Pago)
                   </Label>
                 </div>
               </RadioGroup>
             </div>
 
-            {/* Seção de Detalhes do PIX */}
-            {paymentMethod === 'pix' && showPixSection && pixData && (
-              <PixPaymentDetails
-                qrCodeImage={pixData.qrCodeImage}
-                pixCopyPaste={pixData.pixCopyPaste}
-                onConfirmPayment={handlePixConfirmation}
-                isLoading={isLoading}
-              />
-            )}
-
-            {/* Total e Botão Finalizar (para PIX antes de gerar QR ou para Mercado Pago Checkout Pro) */}
-            {(paymentMethod === 'pix' && !showPixSection) || paymentMethod === 'mercadopago_checkout_pro' ? (
-              <div className="bg-card rounded-2xl shadow-lg p-6 md:p-8">
-                <div className="space-y-4 mb-6">
-                  <div className="flex justify-between text-lg">
-                    <span className="text-muted-foreground">Subtotal:</span>
-                    <span className="font-medium">R$ {totalPrice.toFixed(2)}</span>
-                  </div>
-                  {deliveryFee !== null && (
-                    <div className="flex justify-between text-lg">
-                      <span className="text-muted-foreground">Frete:</span>
-                      <span className="font-medium text-accent">R$ {deliveryFee.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="border-t pt-4 flex justify-between text-2xl font-bold">
-                    <span>Total a Pagar:</span>
-                    <span className="text-primary">R$ {totalWithDelivery.toFixed(2)}</span>
-                  </div>
+            {/* Total e Botão Finalizar */}
+            <div className="bg-card rounded-2xl shadow-lg p-6 md:p-8">
+              <div className="space-y-4 mb-6">
+                <div className="flex justify-between text-lg">
+                  <span className="text-muted-foreground">Subtotal:</span>
+                  <span className="font-medium">R$ {totalPrice.toFixed(2)}</span>
                 </div>
-
-                <Button
-                  variant="hero"
-                  size="lg"
-                  className="w-full"
-                  onClick={paymentMethod === 'pix' ? handlePixPayment : handleMercadoPagoCheckout}
-                  disabled={isCheckoutButtonDisabled}
-                >
-                  {isLoading ? (
-                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                  ) : (
-                    paymentMethod === 'pix' ? 'Gerar PIX e Finalizar Compra' : 'Pagar com Mercado Pago'
-                  )}
-                </Button>
+                {deliveryFee !== null && (
+                  <div className="flex justify-between text-lg">
+                    <span className="text-muted-foreground">Frete:</span>
+                    <span className="font-medium text-accent">R$ {deliveryFee.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="border-t pt-4 flex justify-between text-2xl font-bold">
+                  <span>Total a Pagar:</span>
+                  <span className="text-primary">R$ {totalWithDelivery.toFixed(2)}</span>
+                </div>
               </div>
-            ) : null}
+
+              <Button
+                variant="hero"
+                size="lg"
+                className="w-full"
+                onClick={handleMercadoPagoCheckout}
+                disabled={isCheckoutButtonDisabled}
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                ) : (
+                  'Pagar com Mercado Pago'
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </main>
