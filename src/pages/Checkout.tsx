@@ -9,12 +9,13 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCart } from '@/contexts/CartContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { MapPin, CreditCard, QrCode, Loader2, CheckCircle2, User, Mail } from 'lucide-react';
+import { MapPin, QrCode, Loader2, CheckCircle2, User, Mail } from 'lucide-react'; // Removed CreditCard
 import { toast } from 'sonner';
 import axios from 'axios';
 import PixPaymentDetails from '@/components/PixPaymentDetails';
+// Removed: import MercadoPagoPaymentBrick from '@/components/MercadoPagoPaymentBrick';
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
@@ -32,24 +33,24 @@ const Checkout = () => {
     deliveryFee?: number | null;
   };
 
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'debit_card'>('pix');
+  const [paymentMethod, setPaymentMethod] = useState<'pix'>('pix'); // Only PIX option
   const [isLoading, setIsLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
   const [pixData, setPixData] = useState<{ qrCodeImage: string; pixCopyPaste: string } | null>(null);
   const [showPixSection, setShowPixSection] = useState(false);
 
-  // Dados do pagador
+  // Dados do pagador para o Mercado Pago Transparente
   const [payerName, setPayerName] = useState('');
   const [payerEmail, setPayerEmail] = useState('');
 
   const totalWithDelivery = totalPrice + (deliveryFee || 0);
 
   useEffect(() => {
-    if (items.length === 0 && location.pathname !== '/pagamento/sucesso') {
+    if (items.length === 0 || !deliveryDetails || deliveryFee === undefined || deliveryFee === null) {
       toast.info('Por favor, revise seu carrinho e endereço de entrega.');
       navigate('/carrinho');
     }
-  }, [items, navigate, location.pathname]);
+  }, [items, navigate, deliveryDetails, deliveryFee]);
 
   const constructFullAddress = (details?: typeof deliveryDetails) => {
     if (!details) return '';
@@ -58,8 +59,8 @@ const Checkout = () => {
   };
 
   const handlePixPayment = async () => {
-    if (!deliveryDetails || deliveryFee === null || !payerName.trim() || !payerEmail.trim()) {
-      toast.error('Por favor, preencha todos os detalhes do pagador e de entrega.');
+    if (!deliveryDetails || deliveryFee === null) {
+      toast.error('Detalhes de entrega ou taxa de frete ausentes. Por favor, retorne ao carrinho.');
       return;
     }
 
@@ -72,8 +73,8 @@ const Checkout = () => {
       const response = await axios.post(`${BACKEND_URL}/api/generate-pix`, {
         amount: totalWithDelivery,
         description: `Pedido Pastel & Cana - ${new Date().toLocaleDateString('pt-BR')}`,
-        payerEmail: payerEmail,
-        payerName: payerName,
+        payerEmail: payerEmail, // Passar e-mail do pagador
+        payerName: payerName,   // Passar nome do pagador
       });
       setPixData(response.data);
       setShowPixSection(true);
@@ -91,14 +92,13 @@ const Checkout = () => {
   const handlePixConfirmation = async () => {
     setIsLoading(true);
     setPaymentStatus('processing');
-
     try {
-      // Enviar detalhes do pedido para o backend para confirmação e envio de e-mail
+      // Enviar confirmação do pedido para o backend
       await axios.post(`${BACKEND_URL}/api/confirm-order`, {
         items: items,
         deliveryDetails: deliveryDetails,
         deliveryFee: deliveryFee,
-        totalPrice: totalPrice,
+        totalPrice: totalWithDelivery,
         paymentMethod: 'pix',
         payerName: payerName,
         payerEmail: payerEmail,
@@ -107,9 +107,9 @@ const Checkout = () => {
       toast.success('Pagamento PIX confirmado! Seu pedido foi realizado.');
       setPaymentStatus('success');
       clearCart();
-      navigate('/pagamento/sucesso', { replace: true }); // Redireciona para a página de sucesso
+      navigate('/pagamento/sucesso');
     } catch (error) {
-      console.error('Erro ao confirmar pedido após PIX:', error);
+      console.error('Erro ao confirmar pedido no backend:', error);
       toast.error('Ocorreu um erro ao confirmar seu pedido. Por favor, entre em contato.');
       setPaymentStatus('failed');
     } finally {
@@ -117,91 +117,7 @@ const Checkout = () => {
     }
   };
 
-  const handleCheckoutProPayment = async () => {
-    if (!deliveryDetails || deliveryFee === null || !payerName.trim() || !payerEmail.trim()) {
-      toast.error('Por favor, preencha todos os detalhes do pagador e de entrega.');
-      return;
-    }
-
-    setIsLoading(true);
-    setPaymentStatus('processing');
-
-    try {
-      const orderItems = items.map(item => ({
-        title: item.name,
-        unit_price: parseFloat(item.price.toFixed(2)),
-        quantity: item.quantity,
-        currency_id: 'BRL',
-      }));
-
-      // Adicionar taxa de entrega como um item separado para o Mercado Pago
-      if (deliveryFee && deliveryFee > 0) {
-        orderItems.push({
-          title: 'Taxa de Entrega',
-          unit_price: parseFloat(deliveryFee.toFixed(2)),
-          quantity: 1,
-          currency_id: 'BRL',
-        });
-      }
-
-      const response = await axios.post(`${BACKEND_URL}/api/create-payment`, {
-        items: orderItems,
-        payer: {
-          name: payerName,
-          email: payerEmail,
-        },
-      });
-
-      const { init_point } = response.data;
-      if (init_point) {
-        // Antes de redirecionar, podemos enviar o pedido para o backend para registro
-        // Isso é importante para ter o pedido registrado mesmo que o pagamento não seja finalizado
-        await axios.post(`${BACKEND_URL}/api/confirm-order`, {
-          items: items,
-          deliveryDetails: deliveryDetails,
-          deliveryFee: deliveryFee,
-          totalPrice: totalPrice,
-          paymentMethod: paymentMethod, // 'credit_card' ou 'debit_card'
-          payerName: payerName,
-          payerEmail: payerEmail,
-          // Adicionar um status inicial como 'pendente' ou 'aguardando_pagamento'
-          paymentStatus: 'pending_mp_redirect', 
-        });
-        
-        window.location.href = init_point; // Redireciona para a página do Mercado Pago
-      } else {
-        throw new Error('URL de pagamento do Mercado Pago não recebida.');
-      }
-    } catch (error) {
-      console.error('Erro ao iniciar pagamento com Checkout Pro:', error);
-      toast.error('Ocorreu um erro ao iniciar o pagamento. Tente novamente.');
-      setPaymentStatus('failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Lógica para lidar com o retorno do Mercado Pago (sucesso/falha/pendente)
-  useEffect(() => {
-    const query = new URLSearchParams(location.search);
-    const status = query.get('status');
-
-    if (status === 'approved') {
-      toast.success('Pagamento aprovado! Seu pedido foi realizado.');
-      setPaymentStatus('success');
-      clearCart();
-      navigate('/pagamento/sucesso', { replace: true }); // Redireciona para a página de sucesso
-    } else if (status === 'pending') {
-      toast.info('Pagamento pendente. Aguardando confirmação.');
-      setPaymentStatus('processing');
-      navigate('/pagamento/sucesso', { replace: true }); // Redireciona para a página de sucesso (ou uma página de "aguardando pagamento")
-    } else if (status === 'rejected') {
-      toast.error('Pagamento recusado. Por favor, tente novamente.');
-      setPaymentStatus('failed');
-      navigate('/checkout', { replace: true }); // Volta para o checkout para tentar novamente
-    }
-  }, [location.search, navigate, clearCart]);
-
+  // Removed handleCardPaymentSuccess and handleCardPaymentError as card payments are no longer an option.
 
   // Se o pagamento foi um sucesso (após PIX ou retorno do MP)
   if (paymentStatus === 'success' || location.pathname === '/pagamento/sucesso') {
@@ -250,14 +166,6 @@ const Checkout = () => {
 
   const isPayerDetailsMissing = !payerName.trim() || !payerEmail.trim();
   const isCheckoutButtonDisabled = items.length === 0 || isPayerDetailsMissing || isLoading;
-
-  const handleFinalizeOrder = () => {
-    if (paymentMethod === 'pix') {
-      handlePixPayment();
-    } else { // credit_card or debit_card
-      handleCheckoutProPayment();
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -348,16 +256,16 @@ const Checkout = () => {
               </div>
             </div>
 
-            {/* Forma de Pagamento */}
+            {/* Forma de Pagamento (apenas PIX) */}
             <div className="bg-card rounded-2xl shadow-lg p-6 md:p-8 mb-8">
               <h2 className="text-2xl font-bold mb-6">Forma de Pagamento</h2>
               <RadioGroup
                 value={paymentMethod}
-                onValueChange={(value: 'pix' | 'credit_card' | 'debit_card') => {
+                onValueChange={(value: 'pix') => { // Only PIX option
                   setPaymentMethod(value);
                   setShowPixSection(false);
                   setPixData(null);
-                  setIsLoading(false); // Reset loading state when changing payment method
+                  setIsLoading(false);
                 }}
                 className="space-y-4"
               >
@@ -368,20 +276,7 @@ const Checkout = () => {
                     PIX
                   </Label>
                 </div>
-                <div className="flex items-center space-x-3 p-4 border rounded-lg">
-                  <RadioGroupItem value="credit_card" id="payment-credit" />
-                  <Label htmlFor="payment-credit" className="flex items-center gap-2 text-lg font-medium cursor-pointer">
-                    <CreditCard className="w-6 h-6 text-blue-600" />
-                    Cartão de Crédito (Mercado Pago)
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-3 p-4 border rounded-lg">
-                  <RadioGroupItem value="debit_card" id="payment-debit" />
-                  <Label htmlFor="payment-debit" className="flex items-center gap-2 text-lg font-medium cursor-pointer">
-                    <CreditCard className="w-6 h-6 text-purple-600" />
-                    Cartão de Débito (Mercado Pago)
-                  </Label>
-                </div>
+                {/* Removed Credit Card and Debit Card options */}
               </RadioGroup>
             </div>
 
@@ -395,8 +290,10 @@ const Checkout = () => {
               />
             )}
 
-            {/* Total e Botão Finalizar */}
-            {(!showPixSection || paymentMethod !== 'pix') && ( // Mostra o botão se não for PIX ou se for PIX mas o QR ainda não foi gerado
+            {/* Removed MercadoPagoPaymentBrick rendering */}
+
+            {/* Total e Botão Finalizar (visível apenas para PIX antes de gerar QR) */}
+            {paymentMethod === 'pix' && !showPixSection && (
               <div className="bg-card rounded-2xl shadow-lg p-6 md:p-8">
                 <div className="space-y-4 mb-6">
                   <div className="flex justify-between text-lg">
@@ -419,13 +316,13 @@ const Checkout = () => {
                   variant="hero"
                   size="lg"
                   className="w-full"
-                  onClick={handleFinalizeOrder}
+                  onClick={handlePixPayment}
                   disabled={isCheckoutButtonDisabled}
                 >
                   {isLoading ? (
                     <Loader2 className="mr-2 h-6 w-6 animate-spin" />
                   ) : (
-                    paymentMethod === 'pix' ? 'Gerar PIX e Finalizar Compra' : 'Ir para Pagamento (Mercado Pago)'
+                    'Gerar PIX e Finalizar Compra'
                   )}
                 </Button>
               </div>
