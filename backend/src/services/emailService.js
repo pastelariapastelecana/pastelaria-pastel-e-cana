@@ -15,9 +15,6 @@ if (!emailHost || !emailPort || !emailUser || !emailPass || !orderRecipientEmail
     if (!emailPass) missingVars.push('EMAIL_PASS');
     if (!orderRecipientEmail) missingVars.push('ORDER_RECIPIENT_EMAIL');
     console.error(`ERRO CRÍTICO: Variáveis de ambiente de e-mail ausentes no backend: ${missingVars.join(', ')}`);
-    // Throwing an error here will prevent the server from starting if critical variables are missing.
-    // For a more graceful startup, you might initialize transporter conditionally or log a warning.
-    // For now, let's throw to make it explicit.
     throw new Error(`Configuração de e-mail incompleta. Variáveis ausentes: ${missingVars.join(', ')}`);
 }
 
@@ -35,7 +32,7 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendOrderConfirmationEmail(orderDetails) {
-    const { items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, paymentMethod, payerName, payerEmail, orderDate } = orderDetails;
+    const { items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, paymentMethod, payerName, payerEmail, orderDate, paymentId } = orderDetails;
 
     const itemDetails = items.map(item => `
         <li>${item.name} (x${item.quantity}) - R$ ${item.price.toFixed(2)} cada</li>
@@ -44,6 +41,7 @@ async function sendOrderConfirmationEmail(orderDetails) {
     const emailContent = `
         <h1>Novo Pedido Recebido!</h1>
         <p>Um novo pedido foi finalizado com sucesso em ${new Date(orderDate).toLocaleString('pt-BR')}.</p>
+        ${paymentId ? `<p><strong>ID do Pagamento (Mercado Pago):</strong> ${paymentId}</p>` : ''}
         
         <h2>Detalhes do Cliente:</h2>
         <p><strong>Nome:</strong> ${payerName}</p>
@@ -71,7 +69,7 @@ async function sendOrderConfirmationEmail(orderDetails) {
     const mailOptions = {
         from: emailUser,
         to: orderRecipientEmail,
-        subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()}`,
+        subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()} ${paymentId ? `(MP ID: ${paymentId})` : ''}`,
         html: emailContent,
     };
 
