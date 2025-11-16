@@ -12,10 +12,10 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MapPin, CreditCard, QrCode, Loader2, CheckCircle2, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
-import PixPaymentDetails from '@/components/PixPaymentDetails.tsx'; // Adicionado .tsx aqui
-import MercadoPagoPaymentBrick from '@/components/MercadoPagoPaymentBrick';
+import PixPaymentDetails from '@/components/PixPaymentDetails.tsx'; // Corrigido para incluir .tsx
+import MercadoPagoPaymentBrick from '@/components/MercadoPagoPaymentBrick.tsx';
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
