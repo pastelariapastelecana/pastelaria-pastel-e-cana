@@ -327,7 +327,7 @@ const Checkout = () => {
                   <RadioGroupItem value="mercadopago_checkout_pro" id="payment-mercadopago" />
                   <Label htmlFor="payment-mercadopago" className="flex items-center gap-2 text-lg font-medium cursor-pointer">
                     <CreditCard className="w-6 h-6 text-blue-600" />
-                    Cartão de Crédito/Débito (Mercado Pago)
+                    Cartão de Crédito/Débito/PIX 
                   </Label>
                 </div>
               </RadioGroup>
