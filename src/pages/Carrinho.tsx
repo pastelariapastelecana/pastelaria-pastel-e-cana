@@ -12,7 +12,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import axios from 'axios';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'; // Usando variável de ambiente
+const BACKEND_URL = 'http://localhost:3001'; // Certifique-se que seu backend está rodando nesta porta
 
 const Carrinho = () => {
   const { items, updateQuantity, removeItem, totalPrice, clearCart } = useCart();
@@ -40,27 +40,29 @@ const Carrinho = () => {
 
   const constructFullAddress = (details: typeof deliveryDetails) => {
     const { address, number, neighborhood, city, zipCode } = details;
-    // Garante que todos os campos estejam preenchidos antes de construir o endereço
-    if (!address || !number || !neighborhood || !city || !zipCode) {
-      return '';
+    // Retorna o endereço completo apenas se todos os campos essenciais estiverem preenchidos
+    if (address && number && neighborhood && city && zipCode) {
+      return `${address}, ${number}, ${neighborhood}, ${city} - ${zipCode}`;
     }
-    return `${address}, ${number}, ${neighborhood}, ${city} - ${zipCode}`;
+    return '';
   };
 
   const calculateDeliveryFee = async (details: typeof deliveryDetails) => {
     const fullAddress = constructFullAddress(details);
     if (!fullAddress) {
       setDeliveryFee(null);
-      toast.error('Por favor, preencha todos os campos do endereço para calcular o frete.');
+      // toast.error('Por favor, preencha todos os campos do endereço para calcular o frete.'); // Removed to avoid spamming toast on partial input
       return;
     }
-    console.log('Endereço completo enviado para cálculo de frete:', fullAddress); // Log para depuração
+    console.log('[Frontend] Endereço completo enviado para cálculo de frete:', fullAddress);
     setIsCalculatingDelivery(true);
     try {
-      const originAddress = import.meta.env.VITE_STORE_ADDRESS; // Usando a variável de ambiente
-      console.log('VITE_STORE_ADDRESS lida no frontend:', originAddress); // NOVO LOG
+      const originAddress = import.meta.env.VITE_STORE_ADDRESS;
+      console.log('[Frontend] VITE_STORE_ADDRESS lida no frontend:', originAddress);
       if (!originAddress) {
-        throw new Error('VITE_STORE_ADDRESS não está configurada no arquivo .env do frontend.');
+        toast.error('Endereço da loja não configurado. Por favor, defina VITE_STORE_ADDRESS no seu arquivo .env do frontend.');
+        setDeliveryFee(null);
+        return;
       }
       const response = await axios.post(`${BACKEND_URL}/api/delivery/calculate-fee`, {
         origin: originAddress,
@@ -69,32 +71,18 @@ const Carrinho = () => {
       setDeliveryFee(response.data.deliveryFee);
       toast.success(`Taxa de entrega calculada: R$ ${response.data.deliveryFee.toFixed(2)}`);
     } catch (error) {
-      console.error('Erro ao calcular taxa de entrega:', error);
-      toast.error('Não foi possível calcular a taxa de entrega. Verifique o endereço e a configuração da API do Google Maps no backend.');
+      console.error('[Frontend] Erro ao calcular taxa de entrega:', error);
+      let errorMessage = 'Não foi possível calcular a taxa de entrega. Verifique o endereço.';
+      if (axios.isAxiosError(error) && error.response && error.response.data && error.response.data.details) {
+        errorMessage = `Erro no cálculo do frete: ${error.response.data.details}`;
+      } else if (error instanceof Error) {
+        errorMessage = `Erro no cálculo do frete: ${error.message}`;
+      }
+      toast.error(errorMessage);
       setDeliveryFee(null);
     } finally {
       setIsCalculatingDelivery(false);
     }
-  };
-
-  const handleDeliveryDetailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setDeliveryDetails(prev => {
-      const updatedDetails = { ...prev, [name]: value };
-      const fullAddressProvided = updatedDetails.address && updatedDetails.number && updatedDetails.neighborhood && updatedDetails.city && updatedDetails.zipCode;
-      
-      if (fullAddressProvided) { // Corrigido: Usando fullAddressProvided
-        // Clear previous timeout to avoid multiple API calls
-        if (window.deliveryFeeTimeout) {
-          clearTimeout(window.deliveryFeeTimeout);
-        }
-        // Set a new timeout to calculate fee after a short delay
-        window.deliveryFeeTimeout = setTimeout(() => calculateDeliveryFee(updatedDetails), 1000);
-      } else {
-        setDeliveryFee(null);
-      }
-      return updatedDetails;
-    });
   };
 
   // Adicionar tipo para window para a propriedade customizada
@@ -103,6 +91,29 @@ const Carrinho = () => {
       deliveryFeeTimeout: ReturnType<typeof setTimeout> | undefined;
     }
   }
+
+  const handleDeliveryDetailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setDeliveryDetails(prev => {
+      const updatedDetails = { ...prev, [name]: value };
+      const fullAddressProvided = updatedDetails.address && updatedDetails.number && updatedDetails.neighborhood && updatedDetails.city && updatedDetails.zipCode;
+      
+      if (fullAddressProvided) {
+        if (window.deliveryFeeTimeout) {
+          clearTimeout(window.deliveryFeeTimeout);
+        }
+        window.deliveryFeeTimeout = setTimeout(() => calculateDeliveryFee(updatedDetails), 1000);
+      } else {
+        setDeliveryFee(null);
+        // Optionally, clear the timeout if fields become incomplete
+        if (window.deliveryFeeTimeout) {
+          clearTimeout(window.deliveryFeeTimeout);
+          window.deliveryFeeTimeout = undefined;
+        }
+      }
+      return updatedDetails;
+    });
+  };
 
   const isCheckoutButtonDisabled = items.length === 0 || isCalculatingDelivery || deliveryFee === null || !constructFullAddress(deliveryDetails);
 
@@ -169,143 +180,148 @@ const Carrinho = () => {
                             </Button>
                             <span className="w-8 text-center font-bold">{item.quantity}</span>
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                              className="h-8 w-8"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </Button>
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                  className="h-8 w-8"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
                           </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Endereço de Entrega */}
+                    <div className="bg-card rounded-2xl shadow-lg p-6 md:p-8 mb-8">
+                      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                        <MapPin className="w-6 h-6 text-primary" />
+                        Endereço de Entrega
+                      </h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="address">Endereço *</Label>
+                          <Input
+                            id="address"
+                            name="address"
+                            value={deliveryDetails.address}
+                            onChange={handleDeliveryDetailChange}
+                            placeholder="Rua, Avenida, etc."
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="number">Número *</Label>
+                          <Input
+                            id="number"
+                            name="number"
+                            value={deliveryDetails.number}
+                            onChange={handleDeliveryDetailChange}
+                            placeholder="123"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="neighborhood">Bairro *</Label>
+                          <Input
+                            id="neighborhood"
+                            name="neighborhood"
+                            value={deliveryDetails.neighborhood}
+                            onChange={handleDeliveryDetailChange}
+                            placeholder="Seu bairro"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="city">Cidade *</Label>
+                          <Input
+                            id="city"
+                            name="city"
+                            value={deliveryDetails.city}
+                            onChange={handleDeliveryDetailChange}
+                            placeholder="Sua cidade"
+                            required
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label htmlFor="zipCode">CEP *</Label>
+                          <Input
+                            id="zipCode"
+                            name="zipCode"
+                            value={deliveryDetails.zipCode}
+                            onChange={handleDeliveryDetailChange}
+                            placeholder="00000-000"
+                            required
+                          />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                      {isCalculatingDelivery && (
+                        <p className="text-sm text-muted-foreground mt-4 flex items-center gap-1">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Calculando taxa de entrega...
+                        </p>
+                      )}
+                      {!isCalculatingDelivery && deliveryFee === null && constructFullAddress(deliveryDetails) && (
+                        <p className="text-sm text-destructive mt-4">
+                          Não foi possível calcular o frete. Verifique o endereço ou tente novamente.
+                        </p>
+                      )}
+                    </div>
 
-                {/* Endereço de Entrega */}
-                <div className="bg-card rounded-2xl shadow-lg p-6 md:p-8 mb-8">
-                  <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                    <MapPin className="w-6 h-6 text-primary" />
-                    Endereço de Entrega
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="address">Endereço *</Label>
-                      <Input
-                        id="address"
-                        name="address"
-                        value={deliveryDetails.address}
-                        onChange={handleDeliveryDetailChange}
-                        placeholder="Rua, Avenida, etc."
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="number">Número *</Label>
-                      <Input
-                        id="number"
-                        name="number"
-                        value={deliveryDetails.number}
-                        onChange={handleDeliveryDetailChange}
-                        placeholder="123"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="neighborhood">Bairro *</Label>
-                      <Input
-                        id="neighborhood"
-                        name="neighborhood"
-                        value={deliveryDetails.neighborhood}
-                        onChange={handleDeliveryDetailChange}
-                        placeholder="Seu bairro"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="city">Cidade *</Label>
-                      <Input
-                        id="city"
-                        name="city"
-                        value={deliveryDetails.city}
-                        onChange={handleDeliveryDetailChange}
-                        placeholder="Sua cidade"
-                        required
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label htmlFor="zipCode">CEP *</Label>
-                      <Input
-                        id="zipCode"
-                        name="zipCode"
-                        value={deliveryDetails.zipCode}
-                        onChange={handleDeliveryDetailChange}
-                        placeholder="00000-000"
-                        required
-                      />
-                    </div>
-                  </div>
-                  {isCalculatingDelivery && (
-                    <p className="text-sm text-muted-foreground mt-4 flex items-center gap-1">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Calculando taxa de entrega...
-                    </p>
-                  )}
-                </div>
+                    <div className="bg-card rounded-2xl shadow-lg p-6 md:p-8">
+                      <div className="space-y-4 mb-6">
+                        <div className="flex justify-between text-lg">
+                          <span className="text-muted-foreground">Subtotal:</span>
+                          <span className="font-medium">R$ {totalPrice.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-lg">
+                          <span className="text-muted-foreground">Frete:</span>
+                          <span className="font-medium text-accent">
+                            {deliveryFee !== null ? `R$ ${deliveryFee.toFixed(2)}` : 'Aguardando endereço'}
+                          </span>
+                        </div>
+                        <div className="border-t pt-4 flex justify-between text-2xl font-bold">
+                          <span>Total:</span>
+                          <span className="text-primary">R$ {totalWithDelivery.toFixed(2)}</span>
+                        </div>
+                      </div>
 
-                <div className="bg-card rounded-2xl shadow-lg p-6 md:p-8">
-                  <div className="space-y-4 mb-6">
-                    <div className="flex justify-between text-lg">
-                      <span className="text-muted-foreground">Subtotal:</span>
-                      <span className="font-medium">R$ {totalPrice.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-lg">
-                      <span className="text-muted-foreground">Frete:</span>
-                      <span className="font-medium text-accent">
-                        {deliveryFee !== null ? `R$ ${deliveryFee.toFixed(2)}` : 'Aguardando endereço'}
-                      </span>
-                    </div>
-                    <div className="border-t pt-4 flex justify-between text-2xl font-bold">
-                      <span>Total:</span>
-                      <span className="text-primary">R$ {totalWithDelivery.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <Button
-                      variant="hero"
-                      size="lg"
-                      className="w-full"
-                      onClick={() => navigate('/checkout', { state: { deliveryDetails, deliveryFee } })}
-                      disabled={isCheckoutButtonDisabled}
-                    >
-                      {isCheckoutButtonDisabled ? 'Preencha o endereço e calcule o frete' : 'Finalizar Pedido'}
-                    </Button>
-                    <div className="flex gap-3">
-                      <Link to="/cardapio" className="flex-1">
-                        <Button variant="outline" size="lg" className="w-full">
-                          Continuar Comprando
+                      <div className="space-y-3">
+                        <Button
+                          variant="hero"
+                          size="lg"
+                          className="w-full"
+                          onClick={() => navigate('/checkout', { state: { deliveryDetails, deliveryFee } })}
+                          disabled={isCheckoutButtonDisabled}
+                        >
+                          {isCheckoutButtonDisabled ? 'Preencha o endereço e calcule o frete' : 'Finalizar Pedido'}
                         </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="lg"
-                        onClick={clearCart}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        Limpar Carrinho
-                      </Button>
+                        <div className="flex gap-3">
+                          <Link to="/cardapio" className="flex-1">
+                            <Button variant="outline" size="lg" className="w-full">
+                              Continuar Comprando
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="lg"
+                            onClick={clearCart}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            Limpar Carrinho
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </main>
+          <Footer />
         </div>
-      </main>
-      <Footer />
-    </div>
-  );
-};
+      );
+    };
 
-export default Carrinho;
+    export default Carrinho;
