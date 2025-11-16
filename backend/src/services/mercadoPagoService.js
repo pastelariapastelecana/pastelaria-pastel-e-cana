@@ -15,9 +15,9 @@ async function createPaymentPreference(items, payer) {
             email: payer.email,
         },
         back_urls: {
-            success: `${frontendUrl}/checkout?status=approved`,
-            failure: `${frontendUrl}/checkout?status=rejected`,
-            pending: `${frontendUrl}/checkout?status=pending`
+            success: `${frontendUrl}/`, // Alterado para a página inicial
+            failure: `${frontendUrl}/pagamento/falha`,
+            pending: `${frontendUrl}/pagamento/pendente`
         },
         auto_return: "approved",
     };
@@ -26,16 +26,23 @@ async function createPaymentPreference(items, payer) {
     return result;
 }
 
-async function createPixPayment(payerEmail, payerName, totalAmount) {
+async function createCardPayment(paymentData) {
     const payment = new Payment(client);
-
     const body = {
-        transaction_amount: parseFloat(totalAmount.toFixed(2)),
-        description: 'Pagamento do pedido na Pastelaria Pastel & Cana',
-        payment_method_id: 'pix',
+        transaction_amount: paymentData.transaction_amount,
+        token: paymentData.token,
+        description: paymentData.description,
+        installments: paymentData.installments,
+        payment_method_id: paymentData.payment_method_id,
+        issuer_id: paymentData.issuer_id,
         payer: {
-            email: payerEmail,
-            first_name: payerName,
+            email: paymentData.payer.email,
+            first_name: paymentData.payer.first_name,
+            last_name: paymentData.payer.last_name,
+            identification: {
+                type: paymentData.payer.identification.type,
+                number: paymentData.payer.identification.number,
+            },
         },
     };
 
@@ -43,4 +50,4 @@ async function createPixPayment(payerEmail, payerName, totalAmount) {
     return result;
 }
 
-module.exports = { createPaymentPreference, createPixPayment };
+module.exports = { createPaymentPreference, createCardPayment };
