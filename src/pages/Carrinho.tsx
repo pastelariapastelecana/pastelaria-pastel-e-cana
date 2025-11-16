@@ -12,7 +12,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import axios from 'axios';
 
-const BACKEND_URL = 'http://localhost:3001'; // Certifique-se que seu backend está rodando nesta porta
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'; // Usar variável de ambiente
 
 const Carrinho = () => {
   const { items, updateQuantity, removeItem, totalPrice, clearCart } = useCart();
