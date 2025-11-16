@@ -1,14 +1,18 @@
 // backend/src/services/mercadoPagoService.js
-const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
+const { MercadoPagoConfig, Preference } = require('mercadopago');
 
-const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
+const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+if (!accessToken) {
+    console.error('ERRO CRÍTICO: MERCADOPAGO_ACCESS_TOKEN não está configurado no arquivo .env do backend.');
+    throw new Error('MERCADOPAGO_ACCESS_TOKEN is not defined.');
+}
+
+const client = new MercadoPagoConfig({ accessToken });
 
 async function createPaymentPreference(items, payer) {
     const preference = new Preference(client);
 
-    // Usar a variável de ambiente FRONTEND_URL para os URLs de retorno
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'; 
-    console.log('MercadoPagoService: FRONTEND_URL para back_urls:', frontendUrl); // Log para depuração
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
     const body = {
         items: items,
@@ -17,63 +21,20 @@ async function createPaymentPreference(items, payer) {
             email: payer.email,
         },
         back_urls: {
-            success: `${frontendUrl}/pagamento/sucesso`,
-            failure: `${frontendUrl}/pagamento/falha`,
-            pending: `${frontendUrl}/pagamento/pendente`
+            success: `${frontendUrl}/pagamento/sucesso?status=approved`,
+            failure: `${frontendUrl}/pagamento/sucesso?status=rejected`, // Redireciona para a mesma página, mas com status diferente
+            pending: `${frontendUrl}/pagamento/sucesso?status=pending`
         },
         auto_return: "approved",
+        // Opcional: external_reference para rastreamento do pedido
+        // external_reference: 'YOUR_ORDER_ID',
     };
 
     const result = await preference.create({ body });
     return result;
 }
 
-async function createPixPayment(payerEmail, payerName, totalAmount) {
-    const payment = new Payment(client);
+// As funções createPixPayment e createCardPayment foram removidas,
+// pois o Checkout Pro do Mercado Pago lida com PIX e cartões diretamente.
 
-    const body = {
-        transaction_amount: parseFloat(totalAmount.toFixed(2)),
-        description: 'Pagamento do pedido na Pastelaria Pastel & Cana',
-        payment_method_id: 'pix',
-        payer: {
-            email: payerEmail,
-            first_name: payerName,
-            // Para produção, você pode precisar de mais detalhes do pagador, como CPF e endereço.
-            // "identification": {
-            //     "type": "CPF",
-            //     "number": "12345678909"
-            // }
-        },
-        // Opcional: external_reference para rastreamento do pedido
-        // external_reference: 'YOUR_ORDER_ID',
-    };
-
-    const result = await payment.create({ body });
-    return result;
-}
-
-async function createCardPayment(paymentData) {
-    const payment = new Payment(client);
-    const body = {
-        transaction_amount: paymentData.transaction_amount,
-        token: paymentData.token,
-        description: paymentData.description,
-        installments: paymentData.installments,
-        payment_method_id: paymentData.payment_method_id,
-        issuer_id: paymentData.issuer_id,
-        payer: {
-            email: paymentData.payer.email,
-            first_name: paymentData.payer.first_name,
-            last_name: paymentData.payer.last_name,
-            identification: {
-                type: paymentData.payer.identification.type,
-                number: paymentData.payer.identification.number,
-            },
-        },
-    };
-
-    const result = await payment.create({ body });
-    return result;
-}
-
-module.exports = { createPaymentPreference, createPixPayment, createCardPayment };
+module.exports = { createPaymentPreference };
