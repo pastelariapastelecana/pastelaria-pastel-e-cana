@@ -1,27 +1,41 @@
 const nodemailer = require('nodemailer');
 
+// Check for all required environment variables
+const emailHost = process.env.EMAIL_HOST;
+const emailPort = process.env.EMAIL_PORT;
+const emailUser = process.env.EMAIL_USER;
+const emailPass = process.env.EMAIL_PASS;
+const orderRecipientEmail = process.env.ORDER_RECIPIENT_EMAIL;
+
+if (!emailHost || !emailPort || !emailUser || !emailPass || !orderRecipientEmail) {
+    const missingVars = [];
+    if (!emailHost) missingVars.push('EMAIL_HOST');
+    if (!emailPort) missingVars.push('EMAIL_PORT');
+    if (!emailUser) missingVars.push('EMAIL_USER');
+    if (!emailPass) missingVars.push('EMAIL_PASS');
+    if (!orderRecipientEmail) missingVars.push('ORDER_RECIPIENT_EMAIL');
+    console.error(`ERRO CRÍTICO: Variáveis de ambiente de e-mail ausentes no backend: ${missingVars.join(', ')}`);
+    // Throwing an error here will prevent the server from starting if critical variables are missing.
+    // For a more graceful startup, you might initialize transporter conditionally or log a warning.
+    // For now, let's throw to make it explicit.
+    throw new Error(`Configuração de e-mail incompleta. Variáveis ausentes: ${missingVars.join(', ')}`);
+}
+
 const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || '587'), // Porta padrão para TLS/STARTTLS
-    secure: process.env.EMAIL_PORT === '465', // true para 465, false para outras portas como 587
+    host: emailHost,
+    port: parseInt(emailPort),
+    secure: emailPort === '465', // true for 465, false for other ports like 587
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: emailUser,
+        pass: emailPass,
     },
     tls: {
-        // Não rejeitar certificados autoassinados. Em produção, use certificados válidos.
-        rejectUnauthorized: false, 
+        rejectUnauthorized: false,
     },
 });
 
 async function sendOrderConfirmationEmail(orderDetails) {
-    const recipientEmail = process.env.ORDER_RECIPIENT_EMAIL;
-    if (!recipientEmail) {
-        console.error('ORDER_RECIPIENT_EMAIL não está configurado no .env do backend.');
-        throw new Error('E-mail do destinatário do pedido não configurado.');
-    }
-
-    const { items, deliveryDetails, deliveryFee, totalPrice, paymentMethod } = orderDetails;
+    const { items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, paymentMethod, payerName, payerEmail, orderDate } = orderDetails;
 
     const itemDetails = items.map(item => `
         <li>${item.name} (x${item.quantity}) - R$ ${item.price.toFixed(2)} cada</li>
@@ -29,9 +43,13 @@ async function sendOrderConfirmationEmail(orderDetails) {
 
     const emailContent = `
         <h1>Novo Pedido Recebido!</h1>
-        <p>Um novo pedido foi finalizado com sucesso.</p>
+        <p>Um novo pedido foi finalizado com sucesso em ${new Date(orderDate).toLocaleString('pt-BR')}.</p>
         
-        <h2>Detalhes do Cliente e Entrega:</h2>
+        <h2>Detalhes do Cliente:</h2>
+        <p><strong>Nome:</strong> ${payerName}</p>
+        <p><strong>E-mail:</strong> ${payerEmail}</p>
+
+        <h2>Detalhes da Entrega:</h2>
         <p><strong>Endereço:</strong> ${deliveryDetails.address}, ${deliveryDetails.number}, ${deliveryDetails.neighborhood}, ${deliveryDetails.city} - ${deliveryDetails.zipCode}</p>
         <p><strong>Taxa de Entrega:</strong> R$ ${deliveryFee ? deliveryFee.toFixed(2) : '0.00'}</p>
 
@@ -41,8 +59,9 @@ async function sendOrderConfirmationEmail(orderDetails) {
         </ul>
 
         <h2>Resumo do Pagamento:</h2>
-        <p><strong>Subtotal:</strong> R$ ${totalPrice.toFixed(2)}</p>
-        <p><strong>Total com Frete:</strong> R$ ${(totalPrice + (deliveryFee || 0)).toFixed(2)}</p>
+        <p><strong>Subtotal dos Itens:</strong> R$ ${totalPrice.toFixed(2)}</p>
+        <p><strong>Taxa de Entrega:</strong> R$ ${deliveryFee ? deliveryFee.toFixed(2) : '0.00'}</p>
+        <p><strong>Total Geral:</strong> R$ ${totalWithDelivery.toFixed(2)}</p>
         <p><strong>Método de Pagamento:</strong> ${paymentMethod === 'pix' ? 'PIX' : 'Cartão de Crédito/Débito (Mercado Pago)'}</p>
 
         <p>Por favor, prepare o pedido e organize a entrega.</p>
@@ -50,9 +69,9 @@ async function sendOrderConfirmationEmail(orderDetails) {
     `;
 
     const mailOptions = {
-        from: process.env.EMAIL_USER, // O e-mail que enviará a notificação
-        to: recipientEmail,
-        subject: `Novo Pedido Recebido - #${new Date().getTime()}`, // Assunto único para cada pedido
+        from: emailUser,
+        to: orderRecipientEmail,
+        subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()}`,
         html: emailContent,
     };
 
