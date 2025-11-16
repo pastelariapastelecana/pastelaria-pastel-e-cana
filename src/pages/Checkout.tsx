@@ -315,7 +315,7 @@ const Checkout = () => {
                   <RadioGroupItem value="mercadopago" id="payment-mercadopago" />
                   <Label htmlFor="payment-mercadopago" className="flex items-center gap-2 text-lg font-medium cursor-pointer">
                     <CreditCard className="w-6 h-6 text-blue-600" />
-                    Mercado Pago (Cartão de Crédito/Débito, PIX e mais)
+                    (Cartão de Crédito/Débito e PIX)
                   </Label>
                 </div>
               </RadioGroup>
@@ -350,7 +350,7 @@ const Checkout = () => {
                 {isLoading ? (
                   <Loader2 className="mr-2 h-6 w-6 animate-spin" />
                 ) : (
-                  'Finalizar Pedido com Mercado Pago'
+                  'Finalizar Pedido'
                 )}
               </Button>
             </div>
