@@ -65,6 +65,3 @@ async function handleMercadoPagoWebhook(req, res) {
 }
 
 module.exports = { handleMercadoPagoWebhook };
-}
-
-module.exports = { handleMercadoPagoWebhook };
