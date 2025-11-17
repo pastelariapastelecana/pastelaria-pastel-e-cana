@@ -2,25 +2,27 @@ const { getPaymentDetails } = require('../services/mercadoPagoService');
 const { sendOrderConfirmationEmail } = require('../services/emailService');
 
 async function handleMercadoPagoWebhook(req, res) {
-    const { id, topic } = req.body;
+    // O ID do pagamento está em req.body.data.id e o tópico em req.body.type
+    const notificationType = req.body.type;
+    const paymentId = req.body.data?.id; // Usamos optional chaining para garantir que 'data' existe
 
-    if (!id || !topic) {
-        console.warn('Webhook recebido sem ID ou tópico:', req.body);
-        return res.status(400).send('ID e tópico são obrigatórios.');
+    if (!paymentId || !notificationType) {
+        console.warn('Webhook recebido sem paymentId ou notificationType:', req.body);
+        return res.status(400).send('paymentId e notificationType são obrigatórios.');
     }
 
-    console.log(`[Webhook] Recebido evento do Mercado Pago: ID=${id}, Tópico=${topic}`);
+    console.log(`[Webhook] Recebido evento do Mercado Pago: Payment ID=${paymentId}, Tipo=${notificationType}`);
 
     try {
-        if (topic === 'payment') {
-            const paymentDetails = await getPaymentDetails(id);
+        if (notificationType === 'payment') {
+            const paymentDetails = await getPaymentDetails(paymentId);
 
             if (!paymentDetails) {
-                console.error(`[Webhook] Detalhes do pagamento não encontrados para ID: ${id}`);
+                console.error(`[Webhook] Detalhes do pagamento não encontrados para ID: ${paymentId}`);
                 return res.status(404).send('Detalhes do pagamento não encontrados.');
             }
 
-            console.log(`[Webhook] Status do pagamento para ID ${id}: ${paymentDetails.status}`);
+            console.log(`[Webhook] Status do pagamento para ID ${paymentId}: ${paymentDetails.status}`);
 
             if (paymentDetails.status === 'approved') {
                 // TODO: Em uma aplicação real, você buscaria os detalhes completos do pedido
@@ -45,21 +47,24 @@ async function handleMercadoPagoWebhook(req, res) {
                 };
 
                 await sendOrderConfirmationEmail(placeholderOrderDetails);
-                console.log(`[Webhook] E-mail de confirmação enviado para o pedido com ID de pagamento ${id}.`);
+                console.log(`[Webhook] E-mail de confirmação enviado para o pedido com ID de pagamento ${paymentId}.`);
             } else {
-                console.log(`[Webhook] Pagamento ID ${id} não aprovado. Status: ${paymentDetails.status}`);
+                console.log(`[Webhook] Pagamento ID ${paymentId} não aprovado. Status: ${paymentDetails.status}`);
                 // TODO: Lógica para pagamentos pendentes, rejeitados, etc.
                 // Ex: Atualizar status do pedido no DB.
             }
         } else {
-            console.log(`[Webhook] Tópico ${topic} não é um evento de pagamento. Ignorando.`);
+            console.log(`[Webhook] Tópico ${notificationType} não é um evento de pagamento. Ignorando.`);
         }
 
         res.status(200).send('Webhook processado com sucesso.');
     } catch (error) {
-        console.error(`[Webhook] Erro ao processar webhook para ID ${id}:`, error.message);
+        console.error(`[Webhook] Erro ao processar webhook para ID ${paymentId}:`, error.message);
         res.status(500).send('Erro interno ao processar webhook.');
     }
+}
+
+module.exports = { handleMercadoPagoWebhook };
 }
 
 module.exports = { handleMercadoPagoWebhook };
