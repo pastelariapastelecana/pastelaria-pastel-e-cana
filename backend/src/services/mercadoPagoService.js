@@ -15,12 +15,11 @@ async function createPaymentPreference(items, payer) {
             email: payer.email,
         },
         back_urls: {
-            success: `${frontendUrl}/pagamento/sucesso`,
-            failure: `${frontendUrl}/pagamento/falha`,
-            pending: `${frontendUrl}/pagamento/pendente`
+            success: `${frontendUrl}/checkout?status=approved`,
+            failure: `${frontendUrl}/checkout?status=rejected`,
+            pending: `${frontendUrl}/checkout?status=pending`
         },
         auto_return: "approved",
-        notification_url: `${process.env.BACKEND_URL}/api/webhooks/mercadopago`, // Adiciona o URL do webhook
     };
 
     const result = await preference.create({ body });
@@ -51,7 +50,10 @@ async function getPaymentDetails(paymentId) {
         return result;
     } catch (error) {
         console.error(`Erro ao buscar detalhes do pagamento ${paymentId} no Mercado Pago:`, error.message);
-        throw error;
+        // Em um ambiente de produção, você pode querer relançar o erro original
+        // ou retornar null/undefined para indicar que o pagamento não foi encontrado.
+        // Por enquanto, vamos relançar para que o controlador possa lidar com isso.
+        throw error; 
     }
 }
 
