@@ -49,11 +49,9 @@ async function getPaymentDetails(paymentId) {
         const result = await payment.get({ id: paymentId });
         return result;
     } catch (error) {
-        console.error(`Erro ao buscar detalhes do pagamento ${paymentId} no Mercado Pago:`, error.message);
-        // Em um ambiente de produção, você pode querer relançar o erro original
-        // ou retornar null/undefined para indicar que o pagamento não foi encontrado.
-        // Por enquanto, vamos relançar para que o controlador possa lidar com isso.
-        throw error; 
+        // Se o pagamento não for encontrado (ex: erro 404), loga e retorna null
+        console.warn(`[MercadoPagoService] Pagamento ${paymentId} não encontrado ou erro ao buscar detalhes:`, error.message);
+        return null; 
     }
 }
 
