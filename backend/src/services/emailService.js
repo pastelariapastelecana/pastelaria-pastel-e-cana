@@ -32,7 +32,7 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendOrderConfirmationEmail(orderDetails) {
-    const { items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, paymentMethod, payerName, payerEmail, orderDate, paymentId } = orderDetails;
+    const { items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, paymentMethod, payerName, payerEmail, orderDate } = orderDetails;
 
     const itemDetails = items.map(item => `
         <li>${item.name} (x${item.quantity}) - R$ ${item.price.toFixed(2)} cada</li>
@@ -41,7 +41,6 @@ async function sendOrderConfirmationEmail(orderDetails) {
     const emailContent = `
         <h1>Novo Pedido Recebido!</h1>
         <p>Um novo pedido foi finalizado com sucesso em ${new Date(orderDate).toLocaleString('pt-BR')}.</p>
-        ${paymentId ? `<p><strong>ID do Pagamento (Mercado Pago):</strong> ${paymentId}</p>` : ''}
         
         <h2>Detalhes do Cliente:</h2>
         <p><strong>Nome:</strong> ${payerName}</p>
@@ -69,15 +68,17 @@ async function sendOrderConfirmationEmail(orderDetails) {
     const mailOptions = {
         from: emailUser,
         to: orderRecipientEmail,
-        subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()} ${paymentId ? `(MP ID: ${paymentId})` : ''}`,
+        subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()}`,
         html: emailContent,
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log('E-mail de confirmação de pedido enviado com sucesso!');
+        console.log(`[EmailService] Tentando enviar e-mail para ${orderRecipientEmail} de ${emailUser}...`);
+        const info = await transporter.sendMail(mailOptions);
+        console.log('[EmailService] E-mail de confirmação de pedido enviado com sucesso!', info.messageId);
+        console.log('[EmailService] Preview URL: %s', nodemailer.getTestMessageUrl(info)); // Apenas para contas de teste
     } catch (error) {
-        console.error('Erro ao enviar e-mail de confirmação de pedido:', error);
+        console.error('[EmailService] Erro ao enviar e-mail de confirmação de pedido:', error);
         throw new Error('Falha ao enviar e-mail de confirmação.');
     }
 }
