@@ -10,7 +10,7 @@ async function getDeliveryFee(req, res) {
 
         // Lógica de preço: Ex: R$ 5.00 base + R$ 2.00 por km
         const baseFee = 0.00;
-        const feePerKm = 2.00;
+        const feePerKm = 0.00;
         const deliveryFee = baseFee + (distanceInKm * feePerKm);
 
         res.json({ distanceInKm, deliveryFee: parseFloat(deliveryFee.toFixed(2)) });
