@@ -5,15 +5,14 @@ const emailHost = process.env.EMAIL_HOST;
 const emailPort = process.env.EMAIL_PORT;
 const emailUser = process.env.EMAIL_USER;
 const emailPass = process.env.EMAIL_PASS;
-const orderRecipientEmail = process.env.ORDER_RECIPIENT_EMAIL;
+const orderRecipientEmail = 'pedidos@pastelariapastelecana.com.br'; // Hardcoded recipient as requested
 
-if (!emailHost || !emailPort || !emailUser || !emailPass || !orderRecipientEmail) {
+if (!emailHost || !emailPort || !emailUser || !emailPass) {
     const missingVars = [];
     if (!emailHost) missingVars.push('EMAIL_HOST');
     if (!emailPort) missingVars.push('EMAIL_PORT');
     if (!emailUser) missingVars.push('EMAIL_USER');
     if (!emailPass) missingVars.push('EMAIL_PASS');
-    if (!orderRecipientEmail) missingVars.push('ORDER_RECIPIENT_EMAIL');
     console.error(`ERRO CRÍTICO: Variáveis de ambiente de e-mail ausentes no backend: ${missingVars.join(', ')}`);
     throw new Error(`Configuração de e-mail incompleta. Variáveis ausentes: ${missingVars.join(', ')}`);
 }
@@ -32,7 +31,7 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendOrderConfirmationEmail(orderDetails) {
-    const { items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, paymentMethod, payerName, payerEmail, orderDate } = orderDetails;
+    const { items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, paymentMethod, payerName, payerEmail, orderDate, paymentId } = orderDetails;
 
     const itemDetails = items.map(item => `
         <li>${item.name} (x${item.quantity}) - R$ ${item.price.toFixed(2)} cada</li>
@@ -41,6 +40,7 @@ async function sendOrderConfirmationEmail(orderDetails) {
     const emailContent = `
         <h1>Novo Pedido Recebido!</h1>
         <p>Um novo pedido foi finalizado com sucesso em ${new Date(orderDate).toLocaleString('pt-BR')}.</p>
+        ${paymentId ? `<p><strong>ID do Pagamento (Mercado Pago):</strong> ${paymentId}</p>` : ''}
         
         <h2>Detalhes do Cliente:</h2>
         <p><strong>Nome:</strong> ${payerName}</p>
@@ -68,17 +68,15 @@ async function sendOrderConfirmationEmail(orderDetails) {
     const mailOptions = {
         from: emailUser,
         to: orderRecipientEmail,
-        subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()}`,
+        subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()} ${paymentId ? `(MP ID: ${paymentId})` : ''}`,
         html: emailContent,
     };
 
     try {
-        console.log(`[EmailService] Tentando enviar e-mail para ${orderRecipientEmail} de ${emailUser}...`);
-        const info = await transporter.sendMail(mailOptions);
-        console.log('[EmailService] E-mail de confirmação de pedido enviado com sucesso!', info.messageId);
-        console.log('[EmailService] Preview URL: %s', nodemailer.getTestMessageUrl(info)); // Apenas para contas de teste
+        await transporter.sendMail(mailOptions);
+        console.log('E-mail de confirmação de pedido enviado com sucesso!');
     } catch (error) {
-        console.error('[EmailService] Erro ao enviar e-mail de confirmação de pedido:', error);
+        console.error('Erro ao enviar e-mail de confirmação de pedido:', error);
         throw new Error('Falha ao enviar e-mail de confirmação.');
     }
 }
