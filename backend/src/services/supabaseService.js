@@ -32,13 +32,15 @@ async function insertOrder(orderDetails) {
         order_date: orderDetails.orderDate,
     };
 
+    console.log('Tentando inserir no Supabase:', orderData);
+
     const { data, error } = await supabase
         .from('orders')
         .insert([orderData])
         .select();
 
     if (error) {
-        console.error('Erro ao inserir pedido no Supabase:', error);
+        console.error('ERRO FATAL ao inserir pedido no Supabase:', error);
         throw new Error(`Falha ao salvar pedido no banco de dados: ${error.message}`);
     }
 
