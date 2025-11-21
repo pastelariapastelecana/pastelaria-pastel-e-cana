@@ -22,15 +22,16 @@ const isSecure = emailPort === '465';
 const transporter = nodemailer.createTransport({
     host: emailHost,
     port: parseInt(emailPort),
-    secure: isSecure, // true for 465, false for other ports like 587
+    secure: isSecure, // true for 465 (SSL), false for other ports like 587 (STARTTLS)
     auth: {
         user: emailUser,
         pass: emailPass,
     },
-    // Adiciona um timeout de conexão para evitar que a requisição fique presa indefinidamente
     connectionTimeout: 10000, // 10 segundos
+    // Força o uso de TLS/STARTTLS se não estiver usando a porta 465 segura
+    requireTLS: !isSecure, 
     tls: {
-        // Permite conexões não autorizadas (útil em alguns ambientes de hospedagem, mas não ideal)
+        // Permite conexões não autorizadas (útil em alguns ambientes de hospedagem)
         rejectUnauthorized: false,
     },
 });
