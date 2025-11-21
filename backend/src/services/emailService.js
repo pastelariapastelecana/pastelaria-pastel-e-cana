@@ -17,15 +17,20 @@ if (!emailHost || !emailPort || !emailUser || !emailPass) {
     throw new Error(`Configuração de e-mail incompleta. Variáveis ausentes: ${missingVars.join(', ')}`);
 }
 
+const isSecure = emailPort === '465';
+
 const transporter = nodemailer.createTransport({
     host: emailHost,
     port: parseInt(emailPort),
-    secure: emailPort === '465', // true for 465, false for other ports like 587
+    secure: isSecure, // true for 465, false for other ports like 587
     auth: {
         user: emailUser,
         pass: emailPass,
     },
+    // Adiciona um timeout de conexão para evitar que a requisição fique presa indefinidamente
+    connectionTimeout: 10000, // 10 segundos
     tls: {
+        // Permite conexões não autorizadas (útil em alguns ambientes de hospedagem, mas não ideal)
         rejectUnauthorized: false,
     },
 });
