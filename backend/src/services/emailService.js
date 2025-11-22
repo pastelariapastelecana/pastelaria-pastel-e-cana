@@ -25,6 +25,9 @@ const transporter = nodemailer.createTransport({
         user: emailUser,
         pass: emailPass,
     },
+    // Adicionando configurações para tentar resolver o timeout na porta 587
+    requireTLS: emailPort === '587' || emailPort === '25', // Força TLS para 587 e 25
+    timeout: 15000, // Aumenta o tempo limite para 15 segundos
     tls: {
         rejectUnauthorized: false,
     },
