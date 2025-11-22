@@ -1,8 +1,8 @@
 const sgMail = require('@sendgrid/mail');
 
-// Check for required environment variables
+// Check for all required environment variables
 const sendgridApiKey = process.env.SENDGRID_API_KEY;
-const senderEmail = process.env.SENDER_EMAIL; // O e-mail verificado no SendGrid
+const senderEmail = process.env.SENDER_EMAIL;
 const orderRecipientEmail = 'pedidos@pastelariapastelecana.com.br'; // Hardcoded recipient
 
 if (!sendgridApiKey || !senderEmail) {
@@ -44,7 +44,7 @@ async function sendOrderConfirmationEmail(orderDetails) {
         <p><strong>Subtotal dos Itens:</strong> R$ ${totalPrice.toFixed(2)}</p>
         <p><strong>Taxa de Entrega:</strong> R$ ${deliveryFee ? deliveryFee.toFixed(2) : '0.00'}</p>
         <p><strong>Total Geral:</strong> R$ ${totalWithDelivery.toFixed(2)}</p>
-        <p><strong>Método de Pagamento:</strong> ${paymentMethod === 'pix' ? 'PIX' : 'Cartão de Crédito/Débito (Mercado Pago)'}</p>
+        <p><strong>Método de Pagamento:</strong> ${paymentMethod === 'pix' ? 'PIX' : 'Mercado Pago'}</p>
 
         <p>Por favor, prepare o pedido e organize a entrega.</p>
         <p>Atenciosamente,<br>Sua Pastelaria Pastel & Cana</p>
@@ -52,7 +52,7 @@ async function sendOrderConfirmationEmail(orderDetails) {
 
     const msg = {
         to: orderRecipientEmail,
-        from: senderEmail, // Deve ser um e-mail verificado no SendGrid
+        from: senderEmail, // Must be a verified sender in SendGrid
         subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()} ${paymentId ? `(MP ID: ${paymentId})` : ''}`,
         html: emailContent,
     };
@@ -62,7 +62,7 @@ async function sendOrderConfirmationEmail(orderDetails) {
         console.log('E-mail de confirmação de pedido enviado com sucesso via SendGrid!');
     } catch (error) {
         console.error('Erro ao enviar e-mail de confirmação de pedido via SendGrid:', error.response ? error.response.body : error.message);
-        throw new Error('Falha ao enviar e-mail de confirmação via SendGrid.');
+        throw new Error('Falha ao enviar e-mail de confirmação.');
     }
 }
 
