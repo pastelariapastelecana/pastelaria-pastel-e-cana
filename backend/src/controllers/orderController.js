@@ -1,5 +1,5 @@
 // backend/src/controllers/orderController.js
-const { sendOrderConfirmationEmail } = require('../services/emailService'); // Importar o serviço de e-mail
+const { sendOrderConfirmationEmail } = require('../services/emailService.js'); // Importar o serviço de e-mail
 
 async function confirmOrder(req, res) {
     try {
