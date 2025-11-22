@@ -1,5 +1,5 @@
 const { getPaymentDetails } = require('../services/mercadoPagoService');
-const { sendOrderConfirmationEmail } = require('../services/emailService');
+const { sendOrderConfirmationEmail } = require('../services/sendgridEmailService'); // Usar o novo serviço SendGrid
 
 async function handleMercadoPagoWebhook(req, res) {
     const notificationType = req.body.type;
