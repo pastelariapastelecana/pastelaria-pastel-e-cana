@@ -1,40 +1,19 @@
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
-// Check for all required environment variables
-const emailHost = process.env.EMAIL_HOST;
-const emailPort = process.env.EMAIL_PORT;
-const emailUser = process.env.EMAIL_USER;
-const emailPass = process.env.EMAIL_PASS;
-const orderRecipientEmail = 'pedidos@pastelariapastelecana.com.br'; // Hardcoded recipient as requested
+// Check for required environment variables
+const sendgridApiKey = process.env.SENDGRID_API_KEY;
+const senderEmail = process.env.SENDER_EMAIL; // O e-mail verificado no SendGrid
+const orderRecipientEmail = 'pedidos@pastelariapastelecana.com.br'; // Hardcoded recipient
 
-if (!emailHost || !emailPort || !emailUser || !emailPass) {
+if (!sendgridApiKey || !senderEmail) {
     const missingVars = [];
-    if (!emailHost) missingVars.push('EMAIL_HOST');
-    if (!emailPort) missingVars.push('EMAIL_PORT');
-    if (!emailUser) missingVars.push('EMAIL_USER');
-    if (!emailPass) missingVars.push('EMAIL_PASS');
-    console.error(`ERRO CRÍTICO: Variáveis de ambiente de e-mail ausentes no backend: ${missingVars.join(', ')}`);
+    if (!sendgridApiKey) missingVars.push('SENDGRID_API_KEY');
+    if (!senderEmail) missingVars.push('SENDER_EMAIL');
+    console.error(`ERRO CRÍTICO: Variáveis de ambiente do SendGrid ausentes no backend: ${missingVars.join(', ')}`);
     throw new Error(`Configuração de e-mail incompleta. Variáveis ausentes: ${missingVars.join(', ')}`);
 }
 
-const isSecure = emailPort === '465';
-
-const transporter = nodemailer.createTransport({
-    host: emailHost,
-    port: parseInt(emailPort),
-    secure: isSecure, // true for 465 (SSL), false for other ports like 587 (STARTTLS)
-    auth: {
-        user: emailUser,
-        pass: emailPass,
-    },
-    connectionTimeout: 10000, // 10 segundos
-    // Força o uso de TLS/STARTTLS se não estiver usando a porta 465 segura
-    requireTLS: !isSecure, 
-    tls: {
-        // Permite conexões não autorizadas (útil em alguns ambientes de hospedagem)
-        rejectUnauthorized: false,
-    },
-});
+sgMail.setApiKey(sendgridApiKey);
 
 async function sendOrderConfirmationEmail(orderDetails) {
     const { items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, paymentMethod, payerName, payerEmail, orderDate, paymentId } = orderDetails;
@@ -71,19 +50,19 @@ async function sendOrderConfirmationEmail(orderDetails) {
         <p>Atenciosamente,<br>Sua Pastelaria Pastel & Cana</p>
     `;
 
-    const mailOptions = {
-        from: emailUser,
+    const msg = {
         to: orderRecipientEmail,
+        from: senderEmail, // Deve ser um e-mail verificado no SendGrid
         subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()} ${paymentId ? `(MP ID: ${paymentId})` : ''}`,
         html: emailContent,
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log('E-mail de confirmação de pedido enviado com sucesso!');
+        await sgMail.send(msg);
+        console.log('E-mail de confirmação de pedido enviado com sucesso via SendGrid!');
     } catch (error) {
-        console.error('Erro ao enviar e-mail de confirmação de pedido:', error);
-        throw new Error('Falha ao enviar e-mail de confirmação.');
+        console.error('Erro ao enviar e-mail de confirmação de pedido via SendGrid:', error.response ? error.response.body : error.message);
+        throw new Error('Falha ao enviar e-mail de confirmação via SendGrid.');
     }
 }
 
