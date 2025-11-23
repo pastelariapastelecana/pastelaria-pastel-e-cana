@@ -1,37 +1,23 @@
-const nodemailer = require('nodemailer');
+const formData = require('form-data');
+const Mailgun = require('mailgun.js');
 
 // Check for all required environment variables
-const emailHost = process.env.EMAIL_HOST;
-const emailPort = process.env.EMAIL_PORT;
-const emailUser = process.env.EMAIL_USER;
-const emailPass = process.env.EMAIL_PASS;
-const orderRecipientEmail = 'pedidos@pastelariapastelecana.com.br'; // Hardcoded recipient as requested
+const apiKey = process.env.MAILGUN_API_KEY;
+const domain = process.env.MAILGUN_DOMAIN;
+const senderEmail = process.env.MAILGUN_SENDER_EMAIL;
+const orderRecipientEmail = 'pedidos@pastelariapastelecana.com.br'; // Hardcoded recipient
 
-if (!emailHost || !emailPort || !emailUser || !emailPass) {
+if (!apiKey || !domain || !senderEmail) {
     const missingVars = [];
-    if (!emailHost) missingVars.push('EMAIL_HOST');
-    if (!emailPort) missingVars.push('EMAIL_PORT');
-    if (!emailUser) missingVars.push('EMAIL_USER');
-    if (!emailPass) missingVars.push('EMAIL_PASS');
-    console.error(`ERRO CRÍTICO: Variáveis de ambiente de e-mail ausentes no backend: ${missingVars.join(', ')}`);
+    if (!apiKey) missingVars.push('MAILGUN_API_KEY');
+    if (!domain) missingVars.push('MAILGUN_DOMAIN');
+    if (!senderEmail) missingVars.push('MAILGUN_SENDER_EMAIL');
+    console.error(`ERRO CRÍTICO: Variáveis de ambiente do Mailgun ausentes no backend: ${missingVars.join(', ')}`);
     throw new Error(`Configuração de e-mail incompleta. Variáveis ausentes: ${missingVars.join(', ')}`);
 }
 
-const transporter = nodemailer.createTransport({
-    host: emailHost,
-    port: parseInt(emailPort),
-    secure: emailPort === '465', // true for 465, false for other ports like 587
-    auth: {
-        user: emailUser,
-        pass: emailPass,
-    },
-    // Adicionando configurações para tentar resolver o timeout na porta 587
-    requireTLS: emailPort === '587' || emailPort === '25', // Força TLS para 587 e 25
-    timeout: 15000, // Aumenta o tempo limite para 15 segundos
-    tls: {
-        rejectUnauthorized: false,
-    },
-});
+const mailgun = new Mailgun(formData);
+const mg = mailgun.client({ username: 'api', key: apiKey });
 
 async function sendOrderConfirmationEmail(orderDetails) {
     const { items, deliveryDetails, deliveryFee, totalPrice, totalWithDelivery, paymentMethod, payerName, payerEmail, orderDate, paymentId } = orderDetails;
@@ -40,7 +26,7 @@ async function sendOrderConfirmationEmail(orderDetails) {
         <li>${item.name} (x${item.quantity}) - R$ ${item.price.toFixed(2)} cada</li>
     `).join('');
 
-    const emailContent = `
+    const htmlContent = `
         <h1>Novo Pedido Recebido!</h1>
         <p>Um novo pedido foi finalizado com sucesso em ${new Date(orderDate).toLocaleString('pt-BR')}.</p>
         ${paymentId ? `<p><strong>ID do Pagamento (Mercado Pago):</strong> ${paymentId}</p>` : ''}
@@ -68,19 +54,19 @@ async function sendOrderConfirmationEmail(orderDetails) {
         <p>Atenciosamente,<br>Sua Pastelaria Pastel & Cana</p>
     `;
 
-    const mailOptions = {
-        from: emailUser,
+    const messageData = {
+        from: senderEmail,
         to: orderRecipientEmail,
         subject: `Novo Pedido Recebido - #${new Date(orderDate).getTime()} ${paymentId ? `(MP ID: ${paymentId})` : ''}`,
-        html: emailContent,
+        html: htmlContent,
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log('E-mail de confirmação de pedido enviado com sucesso!');
+        await mg.messages.create(domain, messageData);
+        console.log('E-mail de confirmação de pedido enviado com sucesso via Mailgun!');
     } catch (error) {
-        console.error('Erro ao enviar e-mail de confirmação de pedido:', error);
-        throw new Error('Falha ao enviar e-mail de confirmação.');
+        console.error('Erro ao enviar e-mail de confirmação de pedido via Mailgun:', error);
+        throw new Error('Falha ao enviar e-mail de confirmação via Mailgun.');
     }
 }
 
